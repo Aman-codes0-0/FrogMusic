@@ -1,6 +1,6 @@
-# 🎵 YTMusic — YouTube Music & Video Clone
+# 🐸 Frog Music — Cozy Retro Music & Video Player
 
-A premium, full-stack music & video streaming web app powered by `yt-dlp` and React. Search and stream any song or video directly from YouTube — with a beautiful, responsive UI that feels like the real thing.
+A premium, full-stack cozy music & video streaming web app powered by `yt-dlp` and React. Search and stream any song or video directly — with a beautiful, cozy pixel-art layout and offline PWA capability.
 
 ![Status](https://img.shields.io/badge/Status-Live-brightgreen)
 ![React](https://img.shields.io/badge/Frontend-React%20%2B%20Vite-61DAFB)
@@ -58,7 +58,7 @@ A premium, full-stack music & video streaming web app powered by `yt-dlp` and Re
 ## 📁 Project Structure
 
 ```
-ytmusic_clone/
+frog-music/
 ├── backend/
 │   ├── server.py          # Python HTTP server + yt-dlp API endpoints
 │   └── requirements.txt   # yt-dlp, requests

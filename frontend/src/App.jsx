@@ -6,56 +6,72 @@ import PlayerBar from './components/PlayerBar';
 import NowPlaying from './components/NowPlaying';
 import VideoPlayer from './components/VideoPlayer';
 import { api } from './api';
+import logoImg from './assets/logo.png';
 import './index.css';
+
+// LocalStorage helpers to migrate and read 'ytm_' to 'frog_' keys seamlessly
+const getStorageItem = (key, defaultValue) => {
+  const frogVal = localStorage.getItem(`frog_${key}`);
+  if (frogVal !== null) return frogVal;
+  const ytmVal = localStorage.getItem(`ytm_${key}`);
+  if (ytmVal !== null) {
+    // Migrate to new prefix immediately
+    localStorage.setItem(`frog_${key}`, ytmVal);
+    return ytmVal;
+  }
+  return defaultValue;
+};
+
+const setStorageItem = (key, value) => {
+  localStorage.setItem(`frog_${key}`, value);
+};
+
+const getStorageJSON = (key, defaultValue) => {
+  const val = getStorageItem(key, null);
+  if (val === null) return defaultValue;
+  try {
+    return JSON.parse(val);
+  } catch (e) {
+    return defaultValue;
+  }
+};
+
+const setStorageJSON = (key, value) => {
+  setStorageItem(key, JSON.stringify(value));
+};
 
 export default function App() {
   const [view, setView] = useState('home');
-  const [mode, setMode] = useState(() => localStorage.getItem('ytm_mode') || 'music');
+  const [activePlaylist, setActivePlaylist] = useState(null);
+  const [mode, setMode] = useState(() => getStorageItem('mode', 'music'));
   const [activeVideo, setActiveVideo] = useState(null);
   const [channelName, setChannelName] = useState(''); // for channel view
-  const [savedVideos, setSavedVideos] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('ytm_saved_videos')) || []; }
-    catch(e) { return []; }
-  });
+  const [savedVideos, setSavedVideos] = useState(() => getStorageJSON('saved_videos', []));
   const [nowPlaying, setNowPlaying] = useState(false);
   const [splash, setSplash] = useState(true);
-  const [current, setCurrent] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem('ytm_current')) || null;
-    } catch(e) { return null; }
-  });
-  const [queue, setQueue] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem('ytm_queue')) || [];
-    } catch(e) { return []; }
-  });
-  const [history, setHistory] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem('ytm_history')) || [];
-    } catch(e) { return []; }
-  });
+  const [current, setCurrent] = useState(() => getStorageJSON('current', null));
+  const [queue, setQueue] = useState(() => getStorageJSON('queue', []));
+  const [history, setHistory] = useState(() => getStorageJSON('history', []));
   const [results, setResults] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isPlaying, setIsPlaying] = useState(false);
   const [shuffle, setShuffle] = useState(false);
   const [repeat, setRepeat] = useState('none'); // none, all, one
   const [playlists, setPlaylists] = useState(() => {
-    try {
-      const saved = localStorage.getItem('ytm_playlists');
-      if (saved && saved !== 'null') return JSON.parse(saved);
-    } catch(e) {}
-    const legacyLiked = JSON.parse(localStorage.getItem('ytm_liked') || '[]');
+    const saved = getStorageJSON('playlists', null);
+    if (saved) return saved;
+    const legacyLiked = getStorageJSON('liked', []);
     return { "Liked Songs": legacyLiked };
   });
   
-  const [themeColor, setThemeColor] = useState(() => localStorage.getItem('ytm_theme') || '#FF0000');
+  const [themeColor, setThemeColor] = useState(() => getStorageItem('theme', '#FF0000'));
   const [eqSettings, setEqSettings] = useState({ bass: 0, mid: 0, treble: 0 });
   const [sleepTimer, setSleepTimer] = useState(0); // seconds
-  const [quality, setQuality] = useState(() => localStorage.getItem('ytm_quality') || 'high');
+  const [quality, setQuality] = useState(() => getStorageItem('quality', 'high'));
   const [lyrics, setLyrics] = useState(null);
-  const [autoPlay, setAutoPlay] = useState(() => localStorage.getItem('ytm_autoplay') === 'true');
-  const [bgGradient, setBgGradient] = useState(() => localStorage.getItem('ytm_bg') || 'linear-gradient(135deg, #030303 0%, #000000 100%)');
-  const [autoTheme, setAutoTheme] = useState(() => localStorage.getItem('ytm_autotheme') !== 'false');
+  const [autoPlay, setAutoPlay] = useState(() => getStorageItem('autoplay', 'false') === 'true');
+  const [bgGradient, setBgGradient] = useState(() => getStorageItem('bg', 'linear-gradient(135deg, #030303 0%, #000000 100%)'));
+  const [autoTheme, setAutoTheme] = useState(() => getStorageItem('autotheme', 'true') !== 'false');
   const [miniMode, setMiniMode] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -63,15 +79,15 @@ export default function App() {
 
   useEffect(() => {
     document.documentElement.style.setProperty('--accent', themeColor);
-    localStorage.setItem('ytm_theme', themeColor);
+    setStorageItem('theme', themeColor);
   }, [themeColor]);
 
   useEffect(() => {
-    localStorage.setItem('ytm_mode', mode);
+    setStorageItem('mode', mode);
   }, [mode]);
 
   useEffect(() => {
-    localStorage.setItem('ytm_saved_videos', JSON.stringify(savedVideos));
+    setStorageJSON('saved_videos', savedVideos);
   }, [savedVideos]);
 
   const toggleSaveVideo = (video) => {
@@ -88,29 +104,29 @@ export default function App() {
     doSearch(channel);
   };
 
-  const [currentTime, setCurrentTime] = useState(() => parseFloat(localStorage.getItem('ytm_currentTime')) || 0);
+  const [currentTime, setCurrentTime] = useState(() => parseFloat(getStorageItem('currentTime', '0')) || 0);
   const [duration, setDuration] = useState(0);
-  const [volume, setVolume] = useState(() => parseFloat(localStorage.getItem('ytm_volume')) || 0.8);
+  const [volume, setVolume] = useState(() => parseFloat(getStorageItem('volume', '0.8')) || 0.8);
 
   const audioRef = useRef(null);
   const toastTimeoutRef = useRef(null);
 
   useEffect(() => {
-    localStorage.setItem('ytm_playlists', JSON.stringify(playlists));
+    setStorageJSON('playlists', playlists);
   }, [playlists]);
 
   useEffect(() => {
-    if (current) localStorage.setItem('ytm_current', JSON.stringify(current));
-    localStorage.setItem('ytm_queue', JSON.stringify(queue));
-    localStorage.setItem('ytm_history', JSON.stringify(history));
+    if (current) setStorageJSON('current', current);
+    setStorageJSON('queue', queue);
+    setStorageJSON('history', history);
   }, [current, queue, history]);
 
   useEffect(() => {
-    localStorage.setItem('ytm_currentTime', currentTime);
+    setStorageItem('currentTime', currentTime.toString());
   }, [currentTime]);
 
   useEffect(() => {
-    localStorage.setItem('ytm_volume', volume);
+    setStorageItem('volume', volume.toString());
   }, [volume]);
 
   useEffect(() => {
@@ -142,7 +158,7 @@ export default function App() {
   };
 
   const toggleLike = (id, title) => {
-    addToPlaylist("Liked Songs", { id, title, channel: current?.channel || 'YouTube', duration: current?.duration || 0, thumbnail: current?.thumbnail });
+    addToPlaylist("Liked Songs", { id, title, channel: current?.channel || 'Frog Music', duration: current?.duration || 0, thumbnail: current?.thumbnail });
   };
 
   const addToPlaylist = (playlistName, song) => {
@@ -412,7 +428,7 @@ export default function App() {
   }, [history, playSong]);
 
   useEffect(() => {
-    localStorage.setItem('ytm_quality', quality);
+    setStorageItem('quality', quality);
   }, [quality]);
 
   const toggleShuffle = () => {
@@ -490,12 +506,12 @@ export default function App() {
   };
 
   useEffect(() => {
-    localStorage.setItem('ytm_autoplay', autoPlay);
+    setStorageItem('autoplay', autoPlay.toString());
   }, [autoPlay]);
 
   useEffect(() => {
     document.documentElement.style.setProperty('--bg-gradient', bgGradient);
-    localStorage.setItem('ytm_bg', bgGradient);
+    setStorageItem('bg', bgGradient);
   }, [bgGradient]);
 
   useEffect(() => {
@@ -524,20 +540,26 @@ export default function App() {
 
   return (
     <div className={`app ${miniMode ? 'mini-active' : ''} ${mode === 'video' ? 'video-mode' : ''}`}>
+      {/* Dynamic blurred background from album art */}
+      {current?.thumbnail && (
+        <div
+          className="app-bg-blur"
+          style={{ backgroundImage: `url(${current.thumbnail})` }}
+        />
+      )}
+
       {splash && (
         <div className="loading-screen">
           <div className="loading-logo">
-            <div className="yt-logo-circle">
-              <div className="yt-logo-play"></div>
-            </div>
-            <span className="yt-logo-text">Music</span>
+            <img src={logoImg} alt="Frog Music Logo" className="loading-logo-img" />
+            <span className="loading-logo-text">FROG MUSIC</span>
           </div>
         </div>
       )}
 
       <TopBar doSearch={doSearch} mode={mode} />
       
-      <Sidebar view={view} setView={setView} mode={mode} setMode={setMode} />
+      <Sidebar view={view} setView={setView} mode={mode} setMode={setMode} activePlaylist={activePlaylist} setActivePlaylist={setActivePlaylist} />
       
       <MainContent 
         view={view}
@@ -572,6 +594,8 @@ export default function App() {
         onPlayVideo={setActiveVideo}
         savedVideos={savedVideos}
         toggleSaveVideo={toggleSaveVideo}
+        activePlaylist={activePlaylist}
+        setActivePlaylist={setActivePlaylist}
       />
       
       {mode !== 'video' && (

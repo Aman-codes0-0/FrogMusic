@@ -1,5 +1,5 @@
 """
-Music – Minimal HTTP server (stdlib only) + yt-dlp
+Frog Music – Minimal HTTP server (stdlib only) + yt-dlp
 No Flask, no extra dependencies — just Python + yt-dlp
 """
 import json
@@ -114,50 +114,53 @@ class Handler(BaseHTTPRequestHandler):
             self.send_error(500, str(e))
 
     def _api_status(self):
-        html = b"""<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8"/>
-  <title>YTMusic API</title>
-  <style>
-    * { margin:0; padding:0; box-sizing:border-box; }
-    body { background:#0f0f0f; color:#fff; font-family:'Segoe UI',sans-serif; display:flex; align-items:center; justify-content:center; min-height:100vh; }
-    .card { background:#1a1a1a; border:1px solid #333; border-radius:16px; padding:40px 48px; max-width:540px; width:90%; text-align:center; }
-    .badge { display:inline-flex; align-items:center; gap:8px; background:#1f3a1f; border:1px solid #2d6a2d; color:#4caf50; padding:6px 16px; border-radius:100px; font-size:14px; font-weight:600; margin-bottom:24px; }
-    .dot { width:8px; height:8px; border-radius:50%; background:#4caf50; animation:pulse 1.5s infinite; }
-    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
-    h1 { font-size:28px; margin-bottom:8px; }
-    p  { color:#888; margin-bottom:32px; font-size:15px; }
-    .endpoints { text-align:left; background:#111; border-radius:12px; padding:20px 24px; }
-    .ep { padding:10px 0; border-bottom:1px solid #222; font-size:14px; }
-    .ep:last-child { border-bottom:none; }
-    .method { background:#1a3a5c; color:#64b5f6; padding:2px 8px; border-radius:4px; font-size:12px; font-weight:700; margin-right:8px; }
-    .path { color:#fff; font-family:monospace; }
-    .desc { color:#666; font-size:12px; margin-top:4px; padding-left:48px; }
-  </style>
-</head>
-<body>
-  <div class="card">
-    <div class="badge"><div class="dot"></div> API is Live</div>
-    <h1>🎵 YTMusic Backend</h1>
-    <p>Powered by yt-dlp &mdash; ready to serve requests.</p>
-    <div class="endpoints">
-      <div class="ep">
-        <span class="method">GET</span><span class="path">/api/search?q=</span>
-        <div class="desc">Search songs and videos</div>
-      </div>
-      <div class="ep">
-        <span class="method">GET</span><span class="path">/api/stream/&lt;id&gt;</span>
-        <div class="desc">Stream audio for a video ID</div>
-      </div>
-      <div class="ep">
-        <span class="method">GET</span><span class="path">/api/lyrics/&lt;id&gt;</span>
-        <div class="desc">Fetch lyrics</div>
-      </div>
-    </div>
-  </div>
-</body>
-</html>"""
+        html_lines = [
+            b"<!DOCTYPE html>",
+            b"<html lang=\"en\">",
+            b"<head>",
+            b"  <meta charset=\"UTF-8\"/>",
+            b"  <title>Frog Music API</title>",
+            b"  <style>",
+            b"    * { margin:0; padding:0; box-sizing:border-box; }",
+            b"    body { background:#0f0f0f; color:#fff; font-family:'Segoe UI',sans-serif; display:flex; align-items:center; justify-content:center; min-height:100vh; }",
+            b"    .card { background:#1a1a1a; border:1px solid #333; border-radius:16px; padding:40px 48px; max-width:540px; width:90%; text-align:center; }",
+            b"    .badge { display:inline-flex; align-items:center; gap:8px; background:#1f3a1f; border:1px solid #2d6a2d; color:#4caf50; padding:6px 16px; border-radius:100px; font-size:14px; font-weight:600; margin-bottom:24px; }",
+            b"    .dot { width:8px; height:8px; border-radius:50%; background:#4caf50; animation:pulse 1.5s infinite; }",
+            b"    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }",
+            b"    h1 { font-size:28px; margin-bottom:8px; }",
+            b"    p  { color:#888; margin-bottom:32px; font-size:15px; }",
+            b"    .endpoints { text-align:left; background:#111; border-radius:12px; padding:20px 24px; }",
+            b"    .ep { padding:10px 0; border-bottom:1px solid #222; font-size:14px; }",
+            b"    .ep:last-child { border-bottom:none; }",
+            b"    .method { background:#1a3a5c; color:#64b5f6; padding:2px 8px; border-radius:4px; font-size:12px; font-weight:700; margin-right:8px; }",
+            b"    .path { color:#fff; font-family:monospace; }",
+            b"    .desc { color:#666; font-size:12px; margin-top:4px; padding-left:48px; }",
+            b"  </style>",
+            b"</head>",
+            b"<body>",
+            b"  <div class=\"card\">",
+            b"    <div class=\"badge\"><div class=\"dot\"></div> API is Live</div>",
+            b"    <h1>&#127925; Frog Music Backend</h1>",
+            b"    <p>Powered by yt-dlp &mdash; ready to serve requests.</p>",
+            b"    <div class=\"endpoints\">",
+            b"      <div class=\"ep\">",
+            b"        <span class=\"method\">GET</span><span class=\"path\">/api/search?q=</span>",
+            b"        <div class=\"desc\">Search songs and videos</div>",
+            b"      </div>",
+            b"      <div class=\"ep\">",
+            b"        <span class=\"method\">GET</span><span class=\"path\">/api/stream/&lt;id&gt;</span>",
+            b"        <div class=\"desc\">Stream audio for a video ID</div>",
+            b"      </div>",
+            b"      <div class=\"ep\">",
+            b"        <span class=\"method\">GET</span><span class=\"path\">/api/lyrics/&lt;id&gt;</span>",
+            b"        <div class=\"desc\">Fetch lyrics</div>",
+            b"      </div>",
+            b"    </div>",
+            b"  </div>",
+            b"</body>",
+            b"</html>"
+        ]
+        html = b"\n".join(html_lines)
         self.send_response(200)
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("Access-Control-Allow-Origin", "*")
@@ -323,5 +326,5 @@ if __name__ == "__main__":
         print(f"  [Keep-Alive] Starting pinger for: {app_url}")
         threading.Thread(target=keep_alive, args=(app_url,), daemon=True).start()
 
-    print(f"\n🎵  Music  →  http://localhost:{port}\n")
+    print(f"\n[Frog Music] Backend running at http://localhost:{port}\n")
     ThreadedHTTPServer(("0.0.0.0", port), Handler).serve_forever()
