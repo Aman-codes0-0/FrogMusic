@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import logoImg from '../assets/logo.png';
 
 function fmt(s) {
   if (!s || isNaN(s)) return '0:00';
@@ -37,9 +38,10 @@ export default function MainContent({
   setAutoTheme,
   onPlayVideo,
   savedVideos = [],
-  toggleSaveVideo
+  toggleSaveVideo,
+  activePlaylist,
+  setActivePlaylist
 }) {
-  const [activePlaylist, setActivePlaylist] = useState(null);
   const [showAddMenu, setShowAddMenu] = useState(null);
 
   const isSaved = (id) => savedVideos.some(v => v.id === id);
@@ -130,36 +132,49 @@ export default function MainContent({
         <main className="main">
           {loading && <Loading />}
           
-          {/* Premium Video Hero Banner */}
+          {/* Cozy Video Hero Banner */}
           <div className="hero-banner video-hero-banner" style={{
             width: '100%',
             height: '340px',
-            borderRadius: '24px',
+            borderRadius: '20px',
             marginBottom: '36px',
             position: 'relative',
             overflow: 'hidden',
             display: 'flex',
-            alignItems: 'center',
-            padding: '0 60px',
-            background: 'linear-gradient(rgba(0,0,0,0.4), rgba(0,0,0,0.85))',
-            boxShadow: '0 20px 40px rgba(0,0,0,0.5)'
-          }}>
+            alignItems: 'flex-end',
+            padding: '30px 40px',
+            border: '3px solid var(--wood-dark)',
+            boxShadow: '0 12px 24px rgba(0,0,0,0.5)',
+            cursor: 'pointer'
+          }} onClick={() => doSearch('Trending Music Videos')}>
             <img 
-              src="https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=1200&h=600&fit=crop" 
+              src={logoImg} 
               alt="Video Hero" 
-              style={{ position:'absolute', top:0, left:0, width:'100%', height:'100%', objectFit:'cover', zIndex:-1, filter:'brightness(0.55)' }}
+              style={{ position:'absolute', top:0, left:0, width:'100%', height:'100%', objectFit:'cover', zIndex:-1 }}
             />
-            <div className="hero-content" style={{ zIndex:1, maxWidth:'600px' }}>
-              <span style={{ background:'var(--accent)', color:'#fff', fontSize:'12px', fontWeight:'800', padding:'6px 14px', borderRadius:'100px', textTransform:'uppercase', letterSpacing:'1px', display:'inline-block', marginBottom:'16px' }}>Video Space</span>
-              <h1 style={{ fontSize:'clamp(32px, 5vw, 52px)', fontWeight:'900', color:'#fff', marginBottom:'16px', lineHeight:'1.1', textShadow:'0 4px 12px rgba(0,0,0,0.6)' }}>
-                Watch & Discover <br/> Trending Content
-              </h1>
-              <p style={{ fontSize:'18px', color:'rgba(255,255,255,0.85)', marginBottom:'28px', maxWidth:'500px' }}>
-                Explore high definition music videos, live streams, tutorials, and watch list favorites.
-              </p>
-              <div style={{ display:'flex', gap:'16px' }}>
-                <button className="btn-play" onClick={() => doSearch('Trending Music Videos')} style={{ padding:'12px 32px', fontSize:'16px', borderRadius:'100px' }}>Watch Trending</button>
-                <button className="btn-secondary" onClick={() => setView('library')} style={{ padding:'12px 32px', fontSize:'16px', borderRadius:'100px', background:'rgba(255,255,255,0.1)', border:'1px solid rgba(255,255,255,0.2)' }}>Watch Later</button>
+            <div className="hero-banner-overlay" style={{
+              position: 'absolute',
+              inset: 0,
+              background: 'linear-gradient(to top, rgba(20, 24, 18, 0.9) 0%, rgba(20, 24, 18, 0.2) 60%, rgba(20, 24, 18, 0) 100%)',
+              zIndex: 0
+            }} />
+            <div className="hero-content" style={{ zIndex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+              <div>
+                <span className="pixel-font" style={{ background:'var(--accent)', border: '1.5px solid var(--wood-dark)', color:'#fff', fontSize:'11px', fontWeight:'800', padding:'4px 10px', borderRadius:'4px', textTransform:'uppercase', display:'inline-block', marginBottom:'10px' }}>Video Space</span>
+                <h1 className="pixel-font" style={{ fontSize:'28px', color:'var(--text)', marginBottom:'4px', textShadow:'0 2px 4px var(--wood-dark)' }}>
+                  Hop Into Video Space
+                </h1>
+                <p style={{ fontSize:'14px', color:'var(--text-muted)' }}>
+                  Explore cozy music videos, live streams, and playlists.
+                </p>
+              </div>
+              <div style={{ display:'flex', gap:'12px' }}>
+                <button className="btn-play pixel-font" onClick={(e) => { e.stopPropagation(); doSearch('Trending Music Videos'); }} style={{ padding:'10px 24px', fontSize:'14px', borderRadius:'6px', background:'var(--accent)', border:'2px solid var(--wood-dark)', color:'#fff', cursor:'pointer', fontWeight:'bold' }}>
+                  Watch Trending
+                </button>
+                <button className="btn-secondary pixel-font" onClick={(e) => { e.stopPropagation(); setView('library'); }} style={{ padding:'10px 24px', fontSize:'14px', borderRadius:'6px', background:'rgba(255,255,255,0.1)', border:'2px solid var(--wood-dark)', color:'#fff', cursor:'pointer' }}>
+                  Watch Later
+                </button>
               </div>
             </div>
           </div>
@@ -169,20 +184,23 @@ export default function MainContent({
             {['Trending', 'Hindi Music', 'Lo-Fi Videos', 'Podcasts', 'Live Streams', 'Gaming', 'Tech Reviews', 'Comedy'].map(cat => (
               <button 
                 key={cat} 
-                className="video-cat-pill" 
+                className="video-cat-pill pixel-font" 
                 onClick={() => doSearch(cat)}
                 style={{ 
-                  padding:'8px 20px', 
-                  borderRadius:'100px', 
-                  background:'rgba(255,255,255,0.06)', 
-                  border:'1px solid rgba(255,255,255,0.08)',
-                  color:'#fff',
-                  fontSize:'14px',
+                  padding:'6px 16px', 
+                  borderRadius:'6px', 
+                  background:'var(--surface-2)', 
+                  border:'2px solid var(--wood-dark)',
+                  color:'var(--text)',
+                  fontSize:'13px',
                   fontWeight:'600',
                   cursor:'pointer',
                   whiteSpace:'nowrap',
-                  transition:'all 0.25s'
+                  transition:'all 0.25s',
+                  boxShadow: '0 3px 6px rgba(0,0,0,0.2)'
                 }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--accent)'; e.currentTarget.style.color = '#fff'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; e.currentTarget.style.color = 'var(--text)'; }}
               >
                 {cat}
               </button>
@@ -190,55 +208,17 @@ export default function MainContent({
           </div>
 
           <div className="home-sections">
-            {/* Top Video Channels */}
-            <section className="shelf" style={{marginBottom:'56px'}}>
-              <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-end', marginBottom:'24px'}}>
-                <h2 className="shelf-title" style={{fontSize:'26px', fontWeight:'800'}}>Explore Popular Channels</h2>
-              </div>
-              <div className="shelf-grid" style={{display:'flex', gap:'32px', overflowX:'auto', paddingBottom:'16px', scrollbarWidth:'none'}}>
-                {[
-                  { name: 'GateWay Classes', handle: '204K subscribers' },
-                  { name: 'Coke Studio', handle: '14M subscribers' },
-                  { name: 'Lofi Girl', handle: '14.3M subscribers' },
-                  { name: 'T-Series', handle: '260M subscribers' },
-                  { name: 'MKBHD', handle: '18M subscribers' },
-                ].map(ch => (
-                  <div key={ch.name} onClick={() => doChannelSearch(ch.name)} className="artist-card" style={{textAlign:'center', cursor:'pointer', flexShrink:0, transition:'transform 0.3s'}}>
-                    <div style={{
-                      width:'140px', 
-                      height:'140px', 
-                      borderRadius:'50%', 
-                      marginBottom:'16px', 
-                      background:'linear-gradient(135deg, #FF0000, #ff6b6b)',
-                      display:'flex',
-                      alignItems:'center',
-                      justifyContent:'center',
-                      boxShadow:'0 12px 24px rgba(255,0,0,0.25)', 
-                      border:'2px solid rgba(255,255,255,0.1)',
-                      fontSize:'42px',
-                      fontWeight:'800',
-                      color:'#fff'
-                    }}>
-                      {ch.name.charAt(0).toUpperCase()}
-                    </div>
-                    <div style={{fontSize:'16px', fontWeight:'700', color:'#fff'}}>{ch.name}</div>
-                    <div style={{fontSize:'13px', color:'var(--text-muted)'}}>{ch.handle}</div>
-                  </div>
-                ))}
-              </div>
-            </section>
-
             {/* Video Categories Grid */}
             <section className="shelf" style={{marginBottom:'56px'}}>
               <h2 className="shelf-title" style={{fontSize:'26px', fontWeight:'800', marginBottom:'24px'}}>Browse Video Formats</h2>
               <div className="shelf-grid" style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(220px, 1fr))', gap:'24px'}}>
                 {[
-                  { name: 'Trending Clips', color: '#e52d27', color2: '#b31217', icon: '🎬' },
-                  { name: 'Live Gaming Streams', color: '#7F00FF', color2: '#E100FF', icon: '🎮' },
-                  { name: 'Premium Podcasts', color: '#11998e', color2: '#38ef7d', icon: '🎙️' },
-                  { name: 'Cinematic Hits', color: '#f12711', color2: '#f5af19', icon: '🎥' },
-                  { name: 'Educational Tutorials', color: '#00c6ff', color2: '#0072ff', icon: '🎓' },
-                  { name: 'Comedy & Vlogs', color: '#ff4b1f', color2: '#ff9068', icon: '🔥' },
+                  { name: 'Trending Clips', color: '#4E9F3D', color2: '#1D231A', icon: '🎬' },
+                  { name: 'Live Gaming Streams', color: '#3B7A57', color2: '#28211a', icon: '🎮' },
+                  { name: 'Premium Podcasts', color: '#B5825F', color2: '#2C1A11', icon: '🎙️' },
+                  { name: 'Cinematic Hits', color: '#5C9E66', color2: '#141812', icon: '🎥' },
+                  { name: 'Educational Tutorials', color: '#8D6E63', color2: '#3E2723', icon: '🎓' },
+                  { name: 'Comedy & Vlogs', color: '#8FBC8F', color2: '#2F4F4F', icon: '🔥' },
                 ].map(genre => (
                   <div 
                     key={genre.name} 
@@ -246,18 +226,19 @@ export default function MainContent({
                     style={{
                       height:'150px', 
                       background: `linear-gradient(135deg, ${genre.color}, ${genre.color2})`, 
-                      borderRadius:'20px', 
+                      borderRadius:'16px', 
                       padding:'24px', 
                       position:'relative',
                       cursor:'pointer',
                       boxShadow:'0 15px 30px rgba(0,0,0,0.4)',
                       overflow:'hidden',
-                      transition:'all 0.3s'
+                      transition:'all 0.3s',
+                      border: '3px solid var(--wood-dark)'
                     }}
                     onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-10px)'; e.currentTarget.style.boxShadow = '0 25px 50px rgba(0,0,0,0.6)'; }}
                     onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 15px 30px rgba(0,0,0,0.4)'; }}
                   >
-                    <div style={{ fontSize:'22px', fontWeight:'900', color:'#fff', lineHeight:'1.2', textShadow:'0 2px 4px rgba(0,0,0,0.3)' }}>{genre.name}</div>
+                    <div className="pixel-font" style={{ fontSize:'20px', fontWeight:'700', color:'#fff', lineHeight:'1.2', textShadow:'0 2px 4px rgba(0,0,0,0.3)' }}>{genre.name}</div>
                     <div style={{ position:'absolute', bottom:'-10px', right:'-10px', fontSize:'80px', opacity:'0.25', transform:'rotate(-15deg)' }}>{genre.icon}</div>
                   </div>
                 ))}
@@ -276,98 +257,44 @@ export default function MainContent({
         <div className="hero-banner" style={{
           width: '100%',
           height: '340px',
-          borderRadius: '24px',
+          borderRadius: '20px',
           marginBottom: '48px',
           position: 'relative',
           overflow: 'hidden',
           display: 'flex',
-          alignItems: 'center',
-          padding: '0 60px',
-          background: 'linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.7))',
-          boxShadow: '0 20px 40px rgba(0,0,0,0.5)'
-        }}>
+          alignItems: 'flex-end',
+          padding: '30px 40px',
+          border: '3px solid var(--wood-dark)',
+          boxShadow: '0 12px 24px rgba(0,0,0,0.5)',
+          cursor: 'pointer'
+        }} onClick={() => doSearch('Cozy Acoustic Lofi')}>
           <img 
-            src="/home/dell/.gemini/antigravity/brain/be2ee8e0-bd23-48e2-820c-e2b003c7b6f0/hero_banner_music_1778416149254.png" 
-            alt="Hero" 
-            style={{ position:'absolute', top:0, left:0, width:'100%', height:'100%', objectFit:'cover', zIndex:-1, filter:'brightness(0.7)' }}
+            src={logoImg} 
+            alt="Frog Music Hero" 
+            style={{ position:'absolute', top:0, left:0, width:'100%', height:'100%', objectFit:'cover', zIndex:-1 }}
           />
-          <div className="hero-content" style={{ zIndex:1, maxWidth:'600px' }}>
-            <h1 style={{ fontSize:'clamp(32px, 5vw, 56px)', fontWeight:'900', color:'#fff', marginBottom:'16px', lineHeight:'1.1', textShadow:'0 4px 12px rgba(0,0,0,0.5)' }}>
-              Explore the World <br/> of Music
-            </h1>
-            <p style={{ fontSize:'18px', color:'rgba(255,255,255,0.8)', marginBottom:'32px', maxWidth:'500px' }}>
-              Discover new releases, trending artists, and curated playlists tailored just for you.
-            </p>
-            <div style={{ display:'flex', gap:'16px' }}>
-              <button className="btn-play" onClick={() => doSearch('Top Hits')} style={{ padding:'12px 32px', fontSize:'16px', borderRadius:'100px' }}>Listen Now</button>
-              <button className="btn-secondary" onClick={() => setView('library')} style={{ padding:'12px 32px', fontSize:'16px', borderRadius:'100px', background:'rgba(255,255,255,0.1)', border:'1px solid rgba(255,255,255,0.2)' }}>View Library</button>
+          <div className="hero-banner-overlay" style={{
+            position: 'absolute',
+            inset: 0,
+            background: 'linear-gradient(to top, rgba(20, 24, 18, 0.9) 0%, rgba(20, 24, 18, 0.2) 60%, rgba(20, 24, 18, 0) 100%)',
+            zIndex: 0
+          }} />
+          <div className="hero-content" style={{ zIndex:1, display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+            <div>
+              <h1 className="pixel-font" style={{ fontSize:'28px', color:'var(--text)', marginBottom:'4px', textShadow:'0 2px 4px var(--wood-dark)' }}>
+                Hop Into Cozy Vibes
+              </h1>
+              <p style={{ fontSize:'14px', color:'var(--text-muted)' }}>
+                Enjoy hand-picked lofi tunes, accordion jams, and acoustic sessions.
+              </p>
             </div>
+            <button className="btn-play pixel-font" style={{ padding:'10px 24px', fontSize:'14px', borderRadius:'6px', display:'flex', alignItems:'center', gap:'8px', background:'var(--accent)', border:'2px solid var(--wood-dark)', color:'#fff', cursor:'pointer', fontWeight:'bold' }}>
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M8 5v14l11-7z"/></svg> Play Radio
+            </button>
           </div>
         </div>
 
         <div className="home-sections">
-          <section className="shelf" style={{marginBottom:'56px'}}>
-            <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-end', marginBottom:'24px'}}>
-              <h2 className="shelf-title" style={{fontSize:'26px', fontWeight:'800'}}>Top Artists</h2>
-              <span onClick={() => setView('artists')} style={{fontSize:'14px', color:'var(--accent)', fontWeight:'600', cursor:'pointer'}}>See All</span>
-            </div>
-            <div className="shelf-grid" style={{display:'flex', gap:'32px', overflowX:'auto', paddingBottom:'16px', scrollbarWidth:'none'}}>
-              {[
-                { name: 'Arijit Singh', img: 'https://images.unsplash.com/photo-1493225255756-d9584f8606e9?w=300&h=300&fit=crop' },
-                { name: 'Sidhu Moose Wala', img: 'https://images.unsplash.com/photo-1520127877030-df4f6a4b33b9?w=300&h=300&fit=crop' },
-                { name: 'Diljit Dosanjh', img: 'https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?w=300&h=300&fit=crop' },
-                { name: 'The Weeknd', img: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=300&h=300&fit=crop' },
-                { name: 'Taylor Swift', img: 'https://images.unsplash.com/photo-1514525253361-bee8718a300a?w=300&h=300&fit=crop' },
-              ].map(artist => (
-                <div key={artist.name} onClick={() => doSearch(artist.name)} className="artist-card" style={{textAlign:'center', cursor:'pointer', flexShrink:0, transition:'transform 0.3s'}}>
-                  <div style={{width:'150px', height:'150px', borderRadius:'50%', marginBottom:'16px', overflow:'hidden', boxShadow:'0 12px 24px rgba(0,0,0,0.4)', border:'2px solid rgba(255,255,255,0.1)'}}>
-                    <img src={artist.img} alt={artist.name} style={{width:'100%', height:'100%', objectFit:'cover'}} />
-                  </div>
-                  <div style={{fontSize:'16px', fontWeight:'700', color:'#fff'}}>{artist.name}</div>
-                  <div style={{fontSize:'13px', color:'var(--text-muted)'}}>Artist</div>
-                </div>
-              ))}
-            </div>
-          </section>
-
-          <section className="shelf" style={{marginBottom:'56px'}}>
-            <h2 className="shelf-title" style={{fontSize:'26px', fontWeight:'800', marginBottom:'24px'}}>Explore Genres & Eras</h2>
-            <div className="shelf-grid" style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(200px, 1fr))', gap:'24px'}}>
-              {[
-                { name: 'Lofi', color: '#8E2DE2', color2: '#4A00E0', icon: '🎧' },
-                { name: 'Hip Hop', color: '#11998e', color2: '#38ef7d', icon: '🎤' },
-                { name: 'Pop', color: '#fc466b', color2: '#3f5efb', icon: '🌟' },
-                { name: '90s Hits', color: '#f7971e', color2: '#ffd200', icon: '📼' },
-                { name: '80s Retro', color: '#ff00cc', color2: '#3333ff', icon: '🕶️' },
-                { name: '70s Classics', color: '#56ab2f', color2: '#a8e063', icon: '📻' },
-                { name: '60s Oldies', color: '#614385', color2: '#516395', icon: '💿' },
-                { name: 'Bollywood', color: '#f8ff00', color2: '#3ad59f', icon: '🎬' },
-                { name: 'Rock', color: '#eb3349', color2: '#f45c43', icon: '🎸' },
-              ].map(genre => (
-                <div 
-                  key={genre.name} 
-                  onClick={() => doSearch(genre.name)} 
-                  style={{
-                    height:'140px', 
-                    background: `linear-gradient(135deg, ${genre.color}, ${genre.color2})`, 
-                    borderRadius:'20px', 
-                    padding:'24px', 
-                    position:'relative',
-                    cursor:'pointer',
-                    boxShadow:'0 15px 30px rgba(0,0,0,0.4)',
-                    overflow:'hidden',
-                    transition:'all 0.3s'
-                  }}
-                  onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-10px)'; e.currentTarget.style.boxShadow = '0 25px 50px rgba(0,0,0,0.6)'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 15px 30px rgba(0,0,0,0.4)'; }}
-                >
-                  <div style={{ fontSize:'24px', fontWeight:'900', color:'#fff', textShadow:'0 2px 4px rgba(0,0,0,0.3)' }}>{genre.name}</div>
-                  <div style={{ position:'absolute', bottom:'-10px', right:'-10px', fontSize:'80px', opacity:'0.2', transform:'rotate(-15deg)' }}>{genre.icon}</div>
-                </div>
-              ))}
-            </div>
-          </section>
-
           {playlists["Most Played"]?.length > 0 && (
             <section className="shelf" style={{marginBottom:'56px'}}>
               <h2 className="shelf-title" style={{fontSize:'26px', fontWeight:'800', marginBottom:'24px'}}>Your Top Tracks</h2>
@@ -412,14 +339,23 @@ export default function MainContent({
           </div>
           <div className="track-list">
             {tracks.map((s, i) => (
-              <div key={s.id + i} className={`track-item ${current?.id === s.id ? 'playing' : ''}`} onClick={() => playSong(s)}>
-                <div className="track-num">
+              <div key={s.id + i} className={`track-item ${current?.id === s.id ? 'playing' : ''}`}>
+                <div className="track-num" onClick={() => playSong(s)}>
                   {current?.id === s.id ? (
                     <svg className="playing-icon" viewBox="0 0 24 24" style={{width:'16px', height:'16px', fill:'var(--accent)'}}><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/></svg>
                   ) : i + 1}
                 </div>
-                <div className="track-title">{s.title}</div>
-                <div className="track-artist">{s.channel}</div>
+                <div className={`track-heart ${isLiked(s.id) ? 'liked' : ''}`} onClick={(e) => { e.stopPropagation(); toggleLike(s.id, s.title); }}>
+                  <svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+                </div>
+                <div className="track-title-cell" onClick={() => playSong(s)}>
+                  <img className="track-thumb" src={s.thumbnail} alt="" loading="lazy" />
+                  <div className="track-meta">
+                    <div className="track-title">{s.title}</div>
+                    <div className="track-artist">{s.channel}</div>
+                  </div>
+                </div>
+                <div className="track-album" onClick={() => playSong(s)}>{s.channel}</div>
                 <div className="track-plus" onClick={(e) => { e.stopPropagation(); setShowAddMenu(showAddMenu === s.id ? null : s.id); }}>+</div>
                 <div className="track-dur">{fmt(s.duration)}</div>
               </div>
@@ -545,20 +481,144 @@ export default function MainContent({
     );
   }
 
-  if (view === 'queue') {
+  if (view === 'charts') {
+    const featuredCharts = [
+      { name: 'Global Top 50', desc: 'The hottest tracks worldwide, updated daily.', color: '#4E9F3D', color2: '#1D231A', query: 'Global Top 50 Hits', icon: '🌍' },
+      { name: 'Cozy Lofi Beats', desc: 'Chill lofi hip hop beats to study, work or relax to.', color: '#3B7A57', color2: '#28211a', query: 'lofi hip hop beats', icon: '🐸' },
+      { name: '90s & 80s Retro Jams', desc: 'Classics and nostalgic hits from the golden eras.', color: '#B5825F', color2: '#2C1A11', query: '80s 90s classic retro hits', icon: '📻' },
+      { name: 'Unplugged & Acoustic', desc: 'Warm acoustic sessions, covers, and cozy performances.', color: '#5C9E66', color2: '#141812', query: 'acoustic songs live unplugged', icon: '🎸' },
+    ];
+
     return (
       <main className="main">
-        <h1 className="header-title" style={{marginBottom:'24px'}}>Up Next</h1>
-        <div className="track-list">
-          {queue.map((s, i) => (
-            <div key={i} className="track-item" onClick={() => playSong(s)}>
-              <div className="track-num">{i + 1}</div>
-              <div className="track-title">{s.title}</div>
-              <div className="track-artist">{s.channel}</div>
-              <div className="track-plays">—</div>
-              <div className="track-dur">{fmt(s.duration)}</div>
+        {loading && <Loading />}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
+          <h1 className="header-title">Trending Charts</h1>
+        </div>
+
+        <div className="shelf-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '24px', marginBottom: '40px' }}>
+          {featuredCharts.map(chart => (
+            <div 
+              key={chart.name} 
+              onClick={() => doSearch(chart.query)} 
+              style={{
+                background: `linear-gradient(135deg, ${chart.color}, ${chart.color2})`, 
+                borderRadius: '16px', 
+                padding: '24px', 
+                position: 'relative',
+                cursor: 'pointer',
+                boxShadow: '0 12px 24px rgba(0,0,0,0.4)',
+                overflow: 'hidden',
+                transition: 'all 0.3s',
+                border: '2px solid var(--wood-dark)'
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-6px)'; e.currentTarget.style.boxShadow = '0 20px 40px rgba(0,0,0,0.6)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 12px 24px rgba(0,0,0,0.4)'; }}
+            >
+              <div style={{ fontSize: '32px', marginBottom: '16px' }}>{chart.icon}</div>
+              <h2 className="pixel-font" style={{ fontSize: '20px', fontWeight: '700', color: '#fff', marginBottom: '8px', lineHeight: '1.2' }}>{chart.name}</h2>
+              <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.85)', lineHeight: '1.4' }}>{chart.desc}</p>
             </div>
           ))}
+        </div>
+
+        {playlists["Most Played"]?.length > 0 && (
+          <section className="shelf" style={{ marginTop: '24px' }}>
+            <h2 className="shelf-title" style={{ fontSize: '22px', fontWeight: '800', marginBottom: '20px' }}>Top Songs on Frog Music</h2>
+            <div className="track-list">
+              {playlists["Most Played"].slice(0, 10).map((s, i) => (
+                <div key={s.id + i} className={`track-item ${current?.id === s.id ? 'playing' : ''}`} onClick={() => playSong(s)}>
+                  <div className="track-num">{i + 1}</div>
+                  <div className={`track-heart ${isLiked(s.id) ? 'liked' : ''}`} onClick={(e) => { e.stopPropagation(); toggleLike(s.id, s.title); }}>
+                    <svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+                  </div>
+                  <div className="track-title-cell">
+                    <img className="track-thumb" src={s.thumbnail} alt="" loading="lazy" />
+                    <div className="track-meta">
+                      <div className="track-title">{s.title}</div>
+                      <div className="track-artist">{s.channel}</div>
+                    </div>
+                  </div>
+                  <div className="track-album">{s.channel}</div>
+                  <div className="track-plus" onClick={(e) => { e.stopPropagation(); setShowAddMenu(showAddMenu === s.id ? null : s.id); }}>+</div>
+                  <div className="track-dur">{fmt(s.duration)}</div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+      </main>
+    );
+  }
+
+  if (view === 'queue') {
+    const recentlyPlayed = playlists["Recently Played"] || [];
+    return (
+      <main className="main">
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '40px' }}>
+          {/* Queue Column */}
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+              <h1 className="header-title" style={{ fontSize: '22px' }}>Up Next (Queue)</h1>
+              {queue.length > 0 && <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{queue.length} songs</span>}
+            </div>
+            {queue.length === 0 ? (
+              <div style={{ padding: '40px', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1.5px dashed rgba(255,255,255,0.08)', textAlign: 'center', color: 'var(--text-muted)' }}>
+                Queue is empty. Select a song to start listening.
+              </div>
+            ) : (
+              <div className="track-list">
+                {queue.map((s, i) => (
+                  <div key={`queue-${s.id}-${i}`} className="track-item" onClick={() => playSong(s)}>
+                    <div className="track-num">{i + 1}</div>
+                    <div className={`track-heart ${isLiked(s.id) ? 'liked' : ''}`} onClick={(e) => { e.stopPropagation(); toggleLike(s.id, s.title); }}>
+                      <svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+                    </div>
+                    <div className="track-title-cell">
+                      <img className="track-thumb" src={s.thumbnail} alt="" loading="lazy" />
+                      <div className="track-meta">
+                        <div className="track-title">{s.title}</div>
+                        <div className="track-artist">{s.channel}</div>
+                      </div>
+                    </div>
+                    <div className="track-dur">{fmt(s.duration)}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* History Column */}
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+              <h1 className="header-title" style={{ fontSize: '22px' }}>Recently Played (History)</h1>
+              {recentlyPlayed.length > 0 && <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{recentlyPlayed.length} songs</span>}
+            </div>
+            {recentlyPlayed.length === 0 ? (
+              <div style={{ padding: '40px', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1.5px dashed rgba(255,255,255,0.08)', textAlign: 'center', color: 'var(--text-muted)' }}>
+                No play history yet. Play some tracks first!
+              </div>
+            ) : (
+              <div className="track-list">
+                {recentlyPlayed.map((s, i) => (
+                  <div key={`history-${s.id}-${i}`} className="track-item" onClick={() => playSong(s)}>
+                    <div className="track-num">{i + 1}</div>
+                    <div className={`track-heart ${isLiked(s.id) ? 'liked' : ''}`} onClick={(e) => { e.stopPropagation(); toggleLike(s.id, s.title); }}>
+                      <svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+                    </div>
+                    <div className="track-title-cell">
+                      <img className="track-thumb" src={s.thumbnail} alt="" loading="lazy" />
+                      <div className="track-meta">
+                        <div className="track-title">{s.title}</div>
+                        <div className="track-artist">{s.channel}</div>
+                      </div>
+                    </div>
+                    <div className="track-dur">{fmt(s.duration)}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </main>
     );
@@ -574,7 +634,7 @@ export default function MainContent({
             <svg viewBox="0 0 24 24" style={{width:64,height:64,fill:'rgba(255,255,255,0.15)',marginBottom:16}}>
               <path d="M21 3H3a2 2 0 00-2 2v14a2 2 0 002 2h18a2 2 0 002-2V5a2 2 0 00-2-2zm-9 13l-6-4 6-4v8z"/>
             </svg>
-            <p style={{color:'var(--text-muted)',fontSize:16}}>Search for YouTube videos above</p>
+            <p style={{color:'var(--text-muted)',fontSize:16}}>Search for videos above</p>
           </div>
         </main>
       );
@@ -634,7 +694,7 @@ export default function MainContent({
       );
     }
 
-    // ── MUSIC MODE (unchanged) ───────────────────────────────────────────────
+    // ── MUSIC MODE ─────────────────────────────────────────────────────────────
     if (results.length === 0) return <main className="main">{loading && <Loading />}<div className="empty-msg">No results found</div></main>;
     const topHit = results[0];
     return (
@@ -647,33 +707,67 @@ export default function MainContent({
             <p className="header-subtitle">Top result · {topHit.channel} · {fmt(topHit.duration)}</p>
             <div className="header-actions">
               <button className="btn-play" onClick={() => playSong(topHit)}>
-                <svg viewBox="0 0 24 24" style={{width:'20px', height:'20px'}}><path d="M8 5v14l11-7z"/></svg> Play
+                <svg viewBox="0 0 24 24" style={{width:'18px', height:'18px'}}><path d="M8 5v14l11-7z"/></svg> Play
               </button>
               <button className="btn-secondary" onClick={() => addToQueue(topHit)}>
-                <svg viewBox="0 0 24 24" style={{width:'20px', height:'20px'}}><path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h10v2H4z"/></svg> Add to Queue
+                <svg viewBox="0 0 24 24" style={{width:'18px', height:'18px'}}><path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h10v2H4z"/></svg> Add to Queue
               </button>
             </div>
           </div>
         </div>
+
+        {/* Resso-style track list header */}
+        <div className="track-list-header">
+          <span style={{textAlign:'center'}}>#</span>
+          <span></span>
+          <span>Title</span>
+          <span className="track-album-head">Album</span>
+          <span></span>
+          <span style={{textAlign:'right'}}>Time</span>
+        </div>
+
         <div className="track-list">
           {results.map((s, i) => (
             <div key={`${s.id}-${i}`} className={`track-item ${current?.id === s.id ? 'playing' : ''}`} style={{position:'relative'}}>
+              {/* # number */}
               <div className="track-num" onClick={() => playSong(s)}>
                 {current?.id === s.id ? (
-                  <svg viewBox="0 0 24 24" style={{width:'16px', height:'16px', fill:'var(--accent)'}}><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/></svg>
+                  <svg className="playing-icon" viewBox="0 0 24 24" style={{width:'16px', height:'16px', fill:'var(--accent)'}}><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/></svg>
                 ) : i + 1}
               </div>
-              <div className="track-title" onClick={() => playSong(s)}>{s.title}</div>
-              <div className="track-artist" onClick={() => playSong(s)}>{s.channel}</div>
-              <div className="track-plus" onClick={(e) => { e.stopPropagation(); setShowAddMenu(showAddMenu === s.id ? null : s.id); }} style={{fontSize:'20px', padding:'0 10px', color:'var(--text-muted)'}}>+</div>
+
+              {/* Heart icon */}
+              <div
+                className={`track-heart ${isLiked(s.id) ? 'liked' : ''}`}
+                onClick={(e) => { e.stopPropagation(); toggleLike(s.id, s.title); }}
+              >
+                <svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+              </div>
+
+              {/* Thumbnail + Title + Artist */}
+              <div className="track-title-cell" onClick={() => playSong(s)}>
+                <img className="track-thumb" src={s.thumbnail} alt="" loading="lazy" />
+                <div className="track-meta">
+                  <div className="track-title">{s.title}</div>
+                  <div className="track-artist">{s.channel}</div>
+                </div>
+              </div>
+
+              {/* Album / Channel */}
+              <div className="track-album">{s.channel}</div>
+
+              {/* Add to playlist */}
+              <div className="track-plus" onClick={(e) => { e.stopPropagation(); setShowAddMenu(showAddMenu === s.id ? null : s.id); }}>+</div>
+
+              {/* Duration */}
               <div className="track-dur">{fmt(s.duration)}</div>
-              
+
               {showAddMenu === s.id && (
-                <div className="add-menu" style={{position:'absolute', right:'80px', top:'40px', background:'#222', borderRadius:'8px', zIndex:'10', boxShadow:'0 12px 32px rgba(0,0,0,0.8)', padding:'8px 0', minWidth:'180px', border:'1px solid rgba(255,255,255,0.05)'}}>
+                <div className="add-menu" style={{position:'absolute', right:'80px', top:'44px', background:'#1e1e2a', borderRadius:'10px', zIndex:'20', boxShadow:'0 16px 40px rgba(0,0,0,0.8)', padding:'8px 0', minWidth:'180px', border:'1px solid rgba(255,255,255,0.08)'}}>
                   {Object.keys(playlists).map(pname => (
                     <div key={pname} className="add-menu-item" onClick={() => { addToPlaylist(pname, s); setShowAddMenu(null); }} style={{padding:'10px 16px', cursor:'pointer', fontSize:'14px'}}>Add to {pname}</div>
                   ))}
-                  <div className="add-menu-item" onClick={() => { handleCreatePlaylist(); setShowAddMenu(null); }} style={{padding:'10px 16px', cursor:'pointer', borderTop:'1px solid rgba(255,255,255,0.05)', fontSize:'14px'}}>+ New Playlist</div>
+                  <div className="add-menu-item" onClick={() => { handleCreatePlaylist(); setShowAddMenu(null); }} style={{padding:'10px 16px', cursor:'pointer', borderTop:'1px solid rgba(255,255,255,0.06)', fontSize:'14px'}}>+ New Playlist</div>
                 </div>
               )}
             </div>
@@ -685,6 +779,8 @@ export default function MainContent({
 
   if (view === 'themes') {
     const themeColors = [
+      { name: "Cozy Frog Green", hex: "#4E9F3D" },
+      { name: "Wood Accordion", hex: "#B5825F" },
       { name: "Classic Red", hex: "#FF0000" },
       { name: "Electric Blue", hex: "#0066FF" },
       { name: "Spotify Green", hex: "#1DB954" },

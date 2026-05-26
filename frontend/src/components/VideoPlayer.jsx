@@ -201,7 +201,7 @@ export default function VideoPlayer({ video, onClose, onVideoEnded, autoPlay }) 
               <svg viewBox="0 0 24 24" style={{ width: 14, height: 14, fill: '#fff' }}>
                 <path d="M21 3H3a2 2 0 00-2 2v14a2 2 0 002 2h18a2 2 0 002-2V5a2 2 0 00-2-2zm-9 13l-6-4 6-4v8z"/>
               </svg>
-              YouTube
+              Frog Video
             </div>
             <h2 className="vp-title">{video.title}</h2>
             <p className="vp-channel">{video.channel} · {fmt(video.duration)}</p>
