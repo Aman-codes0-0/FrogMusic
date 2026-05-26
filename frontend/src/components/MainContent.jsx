@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import logoImg from '../assets/logo.png';
+import bannerImg from '../assets/banner.png';
 
 function fmt(s) {
   if (!s || isNaN(s)) return '0:00';
@@ -269,7 +270,7 @@ export default function MainContent({
           cursor: 'pointer'
         }} onClick={() => doSearch('Cozy Acoustic Lofi')}>
           <img 
-            src={logoImg} 
+            src={bannerImg} 
             alt="Frog Music Hero" 
             style={{ position:'absolute', top:0, left:0, width:'100%', height:'100%', objectFit:'cover', zIndex:-1 }}
           />
