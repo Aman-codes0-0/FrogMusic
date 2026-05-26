@@ -159,6 +159,10 @@ class Handler(BaseHTTPRequestHandler):
             q   = qs.get("quality", ["high"])[0]
             self._stream(vid, q)
             return
+        elif path.startswith("/api/proxy"):
+            url_param = qs.get("url", [""])[0]
+            self._proxy(url_param)
+            return
         elif path.startswith("/api/lyrics/"):
             self._lyrics(path.split("/")[-1])
             return
@@ -354,8 +358,14 @@ class Handler(BaseHTTPRequestHandler):
                 else: target = max(af, key=lambda f: f.get("abr") or 0)
                 audio_url = target.get("url")
             if not audio_url: audio_url = info.get("url")
+            
+            # Construct absolute Proxy URL using Host header
+            host = self.headers.get("Host", f"localhost:5000")
+            proto = "https" if "hf.space" in host else self.headers.get("X-Forwarded-Proto", "http")
+            proxy_url = f"{proto}://{host}/api/proxy?url={quote(audio_url)}"
+
             result = {
-                "id": vid, "stream_url": audio_url, "title": info.get("title", "Unknown"),
+                "id": vid, "stream_url": proxy_url, "title": info.get("title", "Unknown"),
                 "channel": info.get("channel") or info.get("uploader", "Unknown"),
                 "duration": info.get("duration", 0),
                 "thumbnail": (info.get("thumbnail") or f"https://img.youtube.com/vi/{vid}/maxresdefault.jpg"),
@@ -366,10 +376,48 @@ class Handler(BaseHTTPRequestHandler):
             print(f"  [Stream] yt-dlp stream fetch failed/timed out: {ex}. Trying Invidious fallback...")
             result = invidious_stream(vid, quality)
             if result:
+                invidious_audio_url = result.get("stream_url")
+                host = self.headers.get("Host", f"localhost:5000")
+                proto = "https" if "hf.space" in host else self.headers.get("X-Forwarded-Proto", "http")
+                result["stream_url"] = f"{proto}://{host}/api/proxy?url={quote(invidious_audio_url)}"
                 set_cache(key, result)
                 self._json(result)
             else:
                 self._json({"error": f"Streaming failed: {str(ex)}"}, 500)
+
+    def _proxy(self, url_to_proxy):
+        if not url_to_proxy:
+            self.send_error(400, "Missing url to proxy")
+            return
+        
+        headers = {
+            "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5 Mobile/15E148 Safari/604.1"
+        }
+        
+        range_header = self.headers.get("Range")
+        if range_header:
+            headers["Range"] = range_header
+            
+        try:
+            # Stream the data in chunks of 4KB to avoid memory issues
+            resp = requests.get(url_to_proxy, headers=headers, stream=True, timeout=15)
+            
+            self.send_response(resp.status_code)
+            for h in ["Content-Type", "Content-Length", "Content-Range", "Accept-Ranges"]:
+                if h in resp.headers:
+                    self.send_header(h, resp.headers[h])
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            
+            for chunk in resp.iter_content(chunk_size=4096):
+                if chunk:
+                    self.wfile.write(chunk)
+        except Exception as e:
+            print(f"  [Proxy Error] Failed proxying URL: {e}")
+            try:
+                self.send_error(500, str(e))
+            except:
+                pass
 
     def _lyrics(self, vid):
         lrc = [
