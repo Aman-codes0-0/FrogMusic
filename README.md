@@ -91,8 +91,8 @@ frog-music/
 
 **1. Clone the repo:**
 ```bash
-git clone https://github.com/KumarAman0-0/yt-clone.git
-cd yt-clone
+git clone https://github.com/Aman-codes0-0/FrogMusic.git
+cd FrogMusic
 ```
 
 **2. Install & start the backend:**
@@ -169,4 +169,4 @@ When the music queue runs out and **Autoplay** is enabled:
 
 ## 📄 License
 
-MIT License — Made with ❤️ by [Kumar Aman](https://github.com/KumarAman0-0)
+MIT License — Made with ❤️ by [Aman](https://github.com/Aman-codes0-0)
