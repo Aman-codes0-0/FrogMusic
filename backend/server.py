@@ -7,7 +7,7 @@ import os
 import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from socketserver import ThreadingMixIn
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import urlparse, parse_qs, quote
 import yt_dlp
 import requests
 import time
@@ -39,6 +39,101 @@ def keep_alive(url):
             print(f"  [Keep-Alive] Ping failed: {e}")
         # Wait 10 minutes (600 seconds)
         time.sleep(600)
+
+# ── Invidious Fallback APIs ──────────────────────────────────────────────────
+INVIDIOUS_INSTANCES = [
+    "https://yt.chocolatemoo53.com",
+    "https://invidious.privacydev.net",
+    "https://invidious.lunar.icu",
+    "https://invidious.no-logs.com",
+    "https://invidious.flokinet.to"
+]
+
+def invidious_search(query):
+    for url in INVIDIOUS_INSTANCES:
+        try:
+            print(f"  [Invidious Fallback] Attempting search via: {url}")
+            r = requests.get(f"{url}/api/v1/search?q={quote(query)}", timeout=7)
+            if r.status_code == 200:
+                data = r.json()
+                if isinstance(data, list):
+                    results = []
+                    for item in data:
+                        if item.get("type") == "video":
+                            vid = item.get("videoId")
+                            results.append({
+                                "id":        vid,
+                                "title":     item.get("title", "Unknown"),
+                                "channel":   item.get("author", "Unknown"),
+                                "duration":  item.get("lengthSeconds", 0),
+                                "thumbnail": f"https://img.youtube.com/vi/{vid}/mqdefault.jpg",
+                            })
+                    if results:
+                        print(f"  [Invidious Fallback] Successfully fetched {len(results)} results from {url}")
+                        return results
+        except Exception as e:
+            print(f"  [Invidious Fallback] Search failed for {url}: {e}")
+    return None
+
+def invidious_stream(vid, quality="high"):
+    for url in INVIDIOUS_INSTANCES:
+        try:
+            print(f"  [Invidious Fallback] Attempting stream fetch via: {url}")
+            r = requests.get(f"{url}/api/v1/videos/{vid}", timeout=7)
+            if r.status_code == 200:
+                data = r.json()
+                adaptive = data.get("adaptiveFormats", [])
+                # Filter for audio streams
+                audio_streams = [f for f in adaptive if f.get("audioQuality") or (f.get("acodec") and not f.get("vcodec"))]
+                if not audio_streams and data.get("formatStreams"):
+                    audio_streams = data.get("formatStreams")
+                
+                if audio_streams:
+                    if quality == "low":
+                        target = audio_streams[-1]
+                    elif quality == "normal" and len(audio_streams) > 1:
+                        target = audio_streams[len(audio_streams)//2]
+                    else:
+                        target = audio_streams[0]
+                    
+                    stream_url = target.get("url")
+                    if stream_url:
+                        print(f"  [Invidious Fallback] Successfully fetched stream URL from {url}")
+                        return {
+                            "id": vid,
+                            "stream_url": stream_url,
+                            "title": data.get("title", "Unknown"),
+                            "channel": data.get("author", "Unknown"),
+                            "duration": data.get("lengthSeconds", 0),
+                            "thumbnail": f"https://img.youtube.com/vi/{vid}/maxresdefault.jpg",
+                        }
+        except Exception as e:
+            print(f"  [Invidious Fallback] Stream fetch failed for {url}: {e}")
+    return None
+
+def invidious_related(vid):
+    for url in INVIDIOUS_INSTANCES:
+        try:
+            print(f"  [Invidious Fallback] Attempting related fetch via: {url}")
+            r = requests.get(f"{url}/api/v1/videos/{vid}", timeout=7)
+            if r.status_code == 200:
+                data = r.json()
+                related = data.get("recommendedVideos", [])
+                results = []
+                for e in related[:5]:
+                    results.append({
+                        "id":        e.get("videoId"),
+                        "title":     e.get("title", "Unknown"),
+                        "channel":   e.get("author", "Unknown"),
+                        "duration":  e.get("lengthSeconds", 0),
+                        "thumbnail": f"https://img.youtube.com/vi/{e.get('videoId')}/mqdefault.jpg",
+                    })
+                if results:
+                    print(f"  [Invidious Fallback] Successfully fetched {len(results)} related videos from {url}")
+                    return results
+        except Exception as e:
+            print(f"  [Invidious Fallback] Related fetch failed for {url}: {e}")
+    return None
 
 # ── Request Handler ───────────────────────────────────────────────────────────
 class Handler(BaseHTTPRequestHandler):
@@ -191,10 +286,13 @@ class Handler(BaseHTTPRequestHandler):
             "no_warnings": True, 
             "extract_flat": True, 
             "skip_download": True,
+            "socket_timeout": 8,
+            "retries": 1,
             # Use mweb client — avoids YouTube bot-detection that blocks default web client
             "extractor_args": {"youtube": {"player_client": ["mweb"]}},
         }
         try:
+            print(f"  [Search] Querying yt-dlp for: {query}")
             with yt_dlp.YoutubeDL(opts) as ydl:
                 # Using a slightly different search query to avoid direct patterns
                 info = ydl.extract_info(f"ytsearch20:{query}", download=False)
@@ -212,7 +310,13 @@ class Handler(BaseHTTPRequestHandler):
             set_cache(key, results)
             self._json(results)
         except Exception as ex:
-            self._json({"error": str(ex)}, 500)
+            print(f"  [Search] yt-dlp search failed/timed out: {ex}. Trying Invidious fallback...")
+            results = invidious_search(query)
+            if results:
+                set_cache(key, results)
+                self._json(results)
+            else:
+                self._json({"error": f"Search failed: {str(ex)}"}, 500)
 
     def _stream(self, vid, quality="high"):
         if not vid:
@@ -227,6 +331,8 @@ class Handler(BaseHTTPRequestHandler):
             "quiet": True, 
             "no_warnings": True, 
             "skip_download": True,
+            "socket_timeout": 8,
+            "retries": 1,
             # Force certain clients that are less likely to be blocked
             "extractor_args": {"youtube": {"player_client": ["ios", "android", "web"]}},
             "http_headers": {
@@ -234,6 +340,7 @@ class Handler(BaseHTTPRequestHandler):
             }
         }
         try:
+            print(f"  [Stream] Querying yt-dlp for video stream: {vid}")
             with yt_dlp.YoutubeDL(opts) as ydl:
                 info = ydl.extract_info(f"https://www.youtube.com/watch?v={vid}", download=False)
             audio_url = None
@@ -256,7 +363,13 @@ class Handler(BaseHTTPRequestHandler):
             set_cache(key, result)
             self._json(result)
         except Exception as ex:
-            self._json({"error": str(ex)}, 500)
+            print(f"  [Stream] yt-dlp stream fetch failed/timed out: {ex}. Trying Invidious fallback...")
+            result = invidious_stream(vid, quality)
+            if result:
+                set_cache(key, result)
+                self._json(result)
+            else:
+                self._json({"error": f"Streaming failed: {str(ex)}"}, 500)
 
     def _lyrics(self, vid):
         lrc = [
@@ -282,9 +395,12 @@ class Handler(BaseHTTPRequestHandler):
             "no_warnings": True,
             "extract_flat": True,
             "skip_download": True,
+            "socket_timeout": 8,
+            "retries": 1,
             "extractor_args": {"youtube": {"player_client": ["mweb"]}},
         }
         try:
+            print(f"  [Related] Querying yt-dlp for related: {vid}")
             with yt_dlp.YoutubeDL(opts) as ydl:
                 info = ydl.extract_info(f"https://www.youtube.com/watch?v={vid}", download=False)
                 entries = info.get("entries") or []
@@ -304,7 +420,13 @@ class Handler(BaseHTTPRequestHandler):
             set_cache(key, results)
             self._json(results)
         except Exception as ex:
-            self._json({"error": str(ex)}, 500)
+            print(f"  [Related] yt-dlp related fetch failed/timed out: {ex}. Trying Invidious fallback...")
+            results = invidious_related(vid)
+            if results:
+                set_cache(key, results)
+                self._json(results)
+            else:
+                self._json({"error": f"Related fetch failed: {str(ex)}"}, 500)
 
     def log_message(self, fmt, *args):
         print(f"  {fmt % args}")
