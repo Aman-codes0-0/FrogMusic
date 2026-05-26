@@ -7,6 +7,8 @@ A premium, full-stack cozy music & video streaming web app powered by `yt-dlp` a
 ![Python](https://img.shields.io/badge/Backend-Python%203-3776AB)
 ![yt-dlp](https://img.shields.io/badge/Streaming-yt--dlp-FF0000)
 
+![Frog Music Preview](preview.png)
+
 ---
 
 ## ✨ Features
