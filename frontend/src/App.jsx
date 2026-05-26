@@ -105,6 +105,7 @@ export default function App() {
   };
 
   const [currentTime, setCurrentTime] = useState(() => parseFloat(getStorageItem('currentTime', '0')) || 0);
+  const lastSavedTimeRef = useRef(0);
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(() => parseFloat(getStorageItem('volume', '0.8')) || 0.8);
 
@@ -122,7 +123,11 @@ export default function App() {
   }, [current, queue, history]);
 
   useEffect(() => {
-    setStorageItem('currentTime', currentTime.toString());
+    // Throttle: localStorage sirf har 5 seconds mein save karo
+    if (Math.abs(currentTime - lastSavedTimeRef.current) > 5) {
+      setStorageItem('currentTime', currentTime.toString());
+      lastSavedTimeRef.current = currentTime;
+    }
   }, [currentTime]);
 
   useEffect(() => {
@@ -277,34 +282,42 @@ export default function App() {
     setCurrent(song);
 
     // Track play count for Smart Playlists
-    const updatedPlaylists = { ...playlists };
-    const p = updatedPlaylists["Most Played"] || [];
-    const existingIdx = p.findIndex(s => s.id === song.id);
-    if (existingIdx !== -1) {
-      p[existingIdx] = { ...p[existingIdx], playCount: (p[existingIdx].playCount || 1) + 1 };
-    } else {
-      p.push({ ...song, playCount: 1 });
-    }
-    // Track Recently Played
-    const rp = updatedPlaylists["Recently Played"] || [];
-    const filteredRp = rp.filter(s => s.id !== song.id);
-    updatedPlaylists["Recently Played"] = [song, ...filteredRp].slice(0, 20);
+    setPlaylists(prev => {
+      const updatedPlaylists = { ...prev };
+      const p = [...(updatedPlaylists["Most Played"] || [])];
+      const existingIdx = p.findIndex(s => s.id === song.id);
+      if (existingIdx !== -1) {
+        p[existingIdx] = { ...p[existingIdx], playCount: (p[existingIdx].playCount || 1) + 1 };
+      } else {
+        p.push({ ...song, playCount: 1 });
+      }
+      // Track Recently Played
+      const rp = updatedPlaylists["Recently Played"] || [];
+      const filteredRp = rp.filter(s => s.id !== song.id);
+      updatedPlaylists["Recently Played"] = [song, ...filteredRp].slice(0, 20);
+      updatedPlaylists["Most Played"] = [...p].sort((a,b) => (b.playCount||0) - (a.playCount||0)).slice(0, 20);
+      return updatedPlaylists;
+    });
 
-    updatedPlaylists["Most Played"] = [...p].sort((a,b) => (b.playCount||0) - (a.playCount||0)).slice(0, 20);
-    setPlaylists(updatedPlaylists);
-    
+    // Auto-theme: background mein color extract karo, play ko block mat karo
     if (autoTheme) {
-      const color = await getDominantColor(song.thumbnail);
-      setThemeColor(color);
+      getDominantColor(song.thumbnail).then(color => setThemeColor(color));
     }
+
+    const currentQuality = quality;
     try {
-      const res = await fetch(api.stream(song.id, quality));
-      const data = await res.json();
+      // Stream aur lyrics parallel mein fetch karo — ~50% faster
+      const [streamRes, lyricsRes] = await Promise.all([
+        fetch(api.stream(song.id, currentQuality)),
+        fetch(api.lyrics(song.id))
+      ]);
+      const [data, ldata] = await Promise.all([
+        streamRes.json(),
+        lyricsRes.json()
+      ]);
+
       if (data.error) throw new Error(data.error);
-      
-      const lres = await fetch(api.lyrics(song.id));
-      const ldata = await lres.json();
-      setLyrics(ldata.lyrics);
+      setLyrics(ldata.lyrics || null);
 
       const audio = audioRef.current;
       audio.src = data.stream_url;
@@ -314,7 +327,7 @@ export default function App() {
       showToast('❌ ' + err.message);
       setIsPlaying(false);
     }
-  }, [current, playlists, autoTheme, quality]);
+  }, [current, autoTheme, quality]);
 
   // ── Radio / Autoplay (defined after playSong to avoid TDZ) ───
   const fetchMusicRadio = useCallback(async (song) => {
