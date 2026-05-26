@@ -557,7 +557,7 @@ export default function App() {
         </div>
       )}
 
-      <TopBar doSearch={doSearch} mode={mode} />
+      <TopBar doSearch={doSearch} mode={mode} setMode={setMode} setView={setView} />
       
       <Sidebar view={view} setView={setView} mode={mode} setMode={setMode} activePlaylist={activePlaylist} setActivePlaylist={setActivePlaylist} />
       

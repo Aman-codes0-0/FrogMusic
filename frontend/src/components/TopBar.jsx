@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import logoImg from '../assets/logo.png';
 
-export default function TopBar({ doSearch, mode }) {
+export default function TopBar({ doSearch, mode, setMode, setView }) {
   const [query, setQuery] = useState('');
 
   useEffect(() => {
@@ -16,6 +16,16 @@ export default function TopBar({ doSearch, mode }) {
   const handleKeyDown = (e) => {
     if (e.key === 'Enter') {
       doSearch(query.trim());
+    }
+  };
+
+  const handleModeToggle = () => {
+    if (mode === 'video') {
+      setMode('music');
+      setView('home');
+    } else {
+      setMode('video');
+      setView('search');
     }
   };
 
@@ -41,6 +51,26 @@ export default function TopBar({ doSearch, mode }) {
           />
         </div>
       </div>
+
+      {setMode && setView && (
+        <button 
+          className={`mode-toggle-btn ${mode === 'video' ? 'mode-toggle-video' : 'mode-toggle-music'}`}
+          style={{ marginRight: '16px' }}
+          onClick={handleModeToggle}
+        >
+          {mode === 'video' ? (
+            <>
+              <svg viewBox="0 0 24 24"><path d="M12 3v10.55A4 4 0 1014 17V7h4V3h-6z"/></svg>
+              <span>Music Mode</span>
+            </>
+          ) : (
+            <>
+              <svg viewBox="0 0 24 24"><path d="M21 3H3a2 2 0 00-2 2v14a2 2 0 002 2h18a2 2 0 002-2V5a2 2 0 00-2-2zm-9 13l-6-4 6-4v8z"/></svg>
+              <span>Video Mode</span>
+            </>
+          )}
+        </button>
+      )}
       
       <div className="topbar-right">
       </div>
