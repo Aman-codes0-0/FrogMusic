@@ -8,6 +8,7 @@ WORKDIR /app
 # ffmpeg needed by yt-dlp for audio/video merging
 RUN apt-get update && apt-get install -y \
     ffmpeg \
+    nodejs \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies

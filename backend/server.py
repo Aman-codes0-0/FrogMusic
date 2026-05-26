@@ -288,6 +288,7 @@ class Handler(BaseHTTPRequestHandler):
             "skip_download": True,
             "socket_timeout": 8,
             "retries": 1,
+            "js_runtimes": {"deno": {}, "node": {}, "bun": {}},
             # Use mweb client — avoids YouTube bot-detection that blocks default web client
             "extractor_args": {"youtube": {"player_client": ["mweb"]}},
         }
@@ -333,8 +334,7 @@ class Handler(BaseHTTPRequestHandler):
             "skip_download": True,
             "socket_timeout": 8,
             "retries": 1,
-            # Force certain clients that are less likely to be blocked
-            "extractor_args": {"youtube": {"player_client": ["ios", "android", "web"]}},
+            "js_runtimes": {"deno": {}, "node": {}, "bun": {}},
             "http_headers": {
                 "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5 Mobile/15E148 Safari/604.1",
             }
@@ -397,6 +397,7 @@ class Handler(BaseHTTPRequestHandler):
             "skip_download": True,
             "socket_timeout": 8,
             "retries": 1,
+            "js_runtimes": {"deno": {}, "node": {}, "bun": {}},
             "extractor_args": {"youtube": {"player_client": ["mweb"]}},
         }
         try:
