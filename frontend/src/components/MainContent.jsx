@@ -149,7 +149,7 @@ export default function MainContent({
             cursor: 'pointer'
           }} onClick={() => doSearch('Trending Music Videos')}>
             <img 
-              src={logoImg} 
+              src={bannerImg} 
               alt="Video Hero" 
               style={{ position:'absolute', top:0, left:0, width:'100%', height:'100%', objectFit:'cover', zIndex:-1 }}
             />
