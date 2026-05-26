@@ -151,7 +151,7 @@ export default function MainContent({
             <img 
               src={bannerImg} 
               alt="Video Hero" 
-              style={{ position:'absolute', top:0, left:0, width:'100%', height:'100%', objectFit:'cover', zIndex:-1 }}
+              style={{ position:'absolute', top:0, left:0, width:'100%', height:'100%', objectFit:'cover', objectPosition:'center top', zIndex:-1 }}
             />
             <div className="hero-banner-overlay" style={{
               position: 'absolute',
@@ -272,7 +272,7 @@ export default function MainContent({
           <img 
             src={bannerImg} 
             alt="Frog Music Hero" 
-            style={{ position:'absolute', top:0, left:0, width:'100%', height:'100%', objectFit:'cover', zIndex:-1 }}
+            style={{ position:'absolute', top:0, left:0, width:'100%', height:'100%', objectFit:'cover', objectPosition:'center top', zIndex:-1 }}
           />
           <div className="hero-banner-overlay" style={{
             position: 'absolute',
