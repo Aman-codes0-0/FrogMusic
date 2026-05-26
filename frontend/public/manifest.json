@@ -1,0 +1,17 @@
+{
+  "short_name": "Frog Music",
+  "name": "Frog Music — Cozy Retro Player",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "type": "image/png",
+      "sizes": "1000x1000",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#141812",
+  "theme_color": "#4E9F3D",
+  "display": "standalone",
+  "orientation": "portrait-primary"
+}
