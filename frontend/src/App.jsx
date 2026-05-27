@@ -124,6 +124,8 @@ export default function App() {
   const autoPlayRef = useRef(autoPlay);
   const resultsRef = useRef(results);
   const currentTimeRef = useRef(currentTime);
+  const activePlaylistRef = useRef(activePlaylist);
+  const playlistsRef = useRef(playlists);
 
   useEffect(() => {
     setStorageJSON('playlists', playlists);
@@ -144,6 +146,8 @@ export default function App() {
   useEffect(() => { autoPlayRef.current = autoPlay; }, [autoPlay]);
   useEffect(() => { resultsRef.current = results; }, [results]);
   useEffect(() => { currentTimeRef.current = currentTime; }, [currentTime]);
+  useEffect(() => { activePlaylistRef.current = activePlaylist; }, [activePlaylist]);
+  useEffect(() => { playlistsRef.current = playlists; }, [playlists]);
 
   useEffect(() => {
     // BUG-22 FIX: Always write current (even null) so clearing current is persisted
@@ -505,14 +509,17 @@ export default function App() {
   // Stable callback dependency array — zero re-registrations
   }, []);
 
-  // BUG-10 FIX: Shuffle now actually randomizes song selection
+  // BUG-10 FIX: Shuffle now actually randomizes song selection, and plays next from active list/search results if manual queue is empty
   const playNext = useCallback(() => {
     const currentQueue = queueRef.current;
     const currentRepeat = repeatRef.current;
     const currentResults = resultsRef.current;
     const currentSong = currentRef.current;
     const currentShuffle = shuffleRef.current;
+    const currentActivePlaylist = activePlaylistRef.current;
+    const currentPlaylists = playlistsRef.current;
 
+    // 1. Play from manual queue first if songs are queued
     if (currentQueue.length > 0) {
       let next, rest;
       if (currentShuffle) {
@@ -524,12 +531,36 @@ export default function App() {
       }
       setQueue(rest);
       playSong(next);
-    } else if (currentRepeat === 'all' && currentResults.length > 0) {
-      const idx = currentResults.findIndex(s => s.id === currentSong?.id);
-      const nextIdx = currentShuffle
-        ? Math.floor(Math.random() * currentResults.length)
-        : (idx + 1) % currentResults.length;
-      playSong(currentResults[nextIdx]);
+      return;
+    }
+
+    // 2. Otherwise, find the active list (playlist or search results)
+    let songList = currentResults || [];
+    if (currentActivePlaylist && currentPlaylists[currentActivePlaylist]) {
+      songList = currentPlaylists[currentActivePlaylist];
+    }
+
+    if (songList.length > 0) {
+      const idx = songList.findIndex(s => s.id === currentSong?.id);
+      if (currentShuffle) {
+        const nextIdx = Math.floor(Math.random() * songList.length);
+        playSong(songList[nextIdx]);
+      } else if (idx !== -1) {
+        if (idx < songList.length - 1) {
+          // Play the next song in the list
+          playSong(songList[idx + 1]);
+        } else if (currentRepeat === 'all') {
+          // Loop back to the start of the list
+          playSong(songList[0]);
+        } else {
+          showToast("End of list");
+        }
+      } else {
+        // Fallback: play first song
+        playSong(songList[0]);
+      }
+    } else {
+      showToast("No more songs in list");
     }
   // Stable callback dependency array — zero re-registrations
   }, [playSong]);
