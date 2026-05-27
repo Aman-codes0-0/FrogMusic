@@ -59,12 +59,15 @@ export default function Sidebar({ view, setView, mode, setMode, activePlaylist, 
         <span>Favorite Songs</span>
       </button>
 
+      {/* BUG-44 FIX: Renamed from "Albums" to "My Playlists" — this nav item
+          sets view='library' with activePlaylist=null, which shows all playlists.
+          "Albums" was a misleading label since there is no albums-specific view. */}
       <button
         className={`nav-item hide-mobile ${view === 'library' && activePlaylist !== 'Liked Songs' ? 'active' : ''}`}
         onClick={() => handleNav('library', null)}
       >
         <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/></svg>
-        <span>Albums</span>
+        <span>My Playlists</span>
       </button>
 
       <button
@@ -75,12 +78,15 @@ export default function Sidebar({ view, setView, mode, setMode, activePlaylist, 
         <span>Artists</span>
       </button>
 
+      {/* BUG-45 FIX: Renamed "History" to "Queue & History" — the queue view
+          shows both "Up Next" (queue) and "Recently Played" (history), so the
+          old label was only half-accurate and confused users expecting pure history. */}
       <button
         className={`nav-item hide-mobile ${view === 'queue' ? 'active' : ''}`}
         onClick={() => handleNav('queue')}
       >
         <svg viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zm3.23 15.4L11 15V7h1.5v7.25l3.25 1.93-1.03 1.72-1.5-.5z"/></svg>
-        <span>History</span>
+        <span>Queue &amp; History</span>
       </button>
 
       {/* ── Divider ── */}

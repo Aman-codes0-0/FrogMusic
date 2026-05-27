@@ -1,9 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-
-function fmt(s) {
-  if (!s || isNaN(s)) return '0:00';
-  return `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
-}
+import { fmt } from '../utils'; // BUG-29: use shared utility
 
 // Detect touch/mobile device
 const isTouchDevice = () =>
@@ -44,15 +40,15 @@ export default function VideoPlayer({ video, onClose, onVideoEnded, autoPlay }) 
     const handleMessage = (e) => {
       if (!e.origin.includes('youtube.com')) return;
       try {
-        const data = JSON.parse(e.data);
-        // playerState === 0 means ENDED
-        if (data.event === 'infoDelivery' && data.info && data.info.playerState === 0) {
-          if (onVideoEnded) {
-            onVideoEnded(video);
-          }
+        // BUG-38 FIX: YouTube sends both string and object postMessages.
+        // Safely parse and check type before accessing nested properties.
+        const data = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
+        if (data && typeof data === 'object' && data.event === 'infoDelivery' &&
+            data.info && data.info.playerState === 0) {
+          if (onVideoEnded) onVideoEnded(video);
         }
       } catch (err) {
-        // Ignore non-JSON messages
+        // Ignore non-JSON or unexpected messages
       }
     };
     window.addEventListener('message', handleMessage);
@@ -104,7 +100,10 @@ export default function VideoPlayer({ video, onClose, onVideoEnded, autoPlay }) 
   useEffect(() => {
     const handleKey = (e) => {
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-      if (e.key === 'Escape' && !isMini) { handleClose(); return; }
+      // BUG-37 FIX: Don't close VideoPlayer if NowPlaying overlay is open
+      // (NowPlaying is fullscreen at z-index 200; VideoPlayer is z-index 300)
+      const nowPlayingOpen = !!document.querySelector('.now-playing-overlay');
+      if (e.key === 'Escape' && !isMini && !nowPlayingOpen) { handleClose(); return; }
       if (e.key === 'f' || e.key === 'F') { toggleFullscreen(); return; }
       if (e.key === 'm' || e.key === 'M') { setIsMini(true); return; }
     };
@@ -113,39 +112,45 @@ export default function VideoPlayer({ video, onClose, onVideoEnded, autoPlay }) 
   }, [handleClose, toggleFullscreen, isMini]);
 
   // ── Mini player drag ────────────────────────────────────────────────────────
-  const onMiniMouseDown = (e) => {
+  // BUG-36 FIX: The old code added mousemove/mouseup via named functions defined
+  // on the component body. Since components re-render, each render creates new
+  // function references, so removeEventListener called a DIFFERENT reference than
+  // the one added — meaning the listener was NEVER removed (memory leak + stale
+  // closures). Fix: capture handlers inside onMiniMouseDown's closure.
+  const onMiniMouseDown = useCallback((e) => {
     e.preventDefault();
     const rect = miniRef.current.getBoundingClientRect();
-    dragState.current = {
-      startX: e.clientX,
-      startY: e.clientY,
-      origX: rect.left,
-      origY: rect.top,
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const origX = rect.left;
+    const origY = rect.top;
+
+    const handleMove = (e) => {
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+      // BUG-35 FIX: Use position: fixed left/top directly from viewport coords.
+      // origX/origY from getBoundingClientRect() are already viewport-relative,
+      // matching what CSS left/top expects for position:fixed elements.
+      setMiniPos({ x: origX + dx, y: origY + dy });
     };
-    window.addEventListener('mousemove', onMiniMouseMove);
-    window.addEventListener('mouseup', onMiniMouseUp);
+
+    const handleUp = () => {
+      dragState.current = null;
+      window.removeEventListener('mousemove', handleMove);
+      window.removeEventListener('mouseup', handleUp);
+      miniRef.current?.classList.remove('dragging');
+    };
+
+    dragState.current = { startX, startY, origX, origY };
+    window.addEventListener('mousemove', handleMove);
+    window.addEventListener('mouseup', handleUp);
     miniRef.current?.classList.add('dragging');
-  };
-
-  const onMiniMouseMove = (e) => {
-    if (!dragState.current) return;
-    const dx = e.clientX - dragState.current.startX;
-    const dy = e.clientY - dragState.current.startY;
-    setMiniPos({ x: dragState.current.origX + dx, y: dragState.current.origY + dy });
-  };
-
-  const onMiniMouseUp = () => {
-    dragState.current = null;
-    window.removeEventListener('mousemove', onMiniMouseMove);
-    window.removeEventListener('mouseup', onMiniMouseUp);
-    miniRef.current?.classList.remove('dragging');
-  };
+  }, []);
 
   useEffect(() => {
     return () => {
-      window.removeEventListener('mousemove', onMiniMouseMove);
-      window.removeEventListener('mouseup', onMiniMouseUp);
-      unlockOrientation(); // safety cleanup
+      // Safety cleanup on unmount
+      unlockOrientation();
     };
   }, []);
 

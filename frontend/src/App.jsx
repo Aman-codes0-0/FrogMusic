@@ -6,6 +6,7 @@ import PlayerBar from './components/PlayerBar';
 import NowPlaying from './components/NowPlaying';
 import VideoPlayer from './components/VideoPlayer';
 import { api } from './api';
+import { fmt } from './utils';
 import logoImg from './assets/logo.png';
 import './index.css';
 
@@ -98,11 +99,8 @@ export default function App() {
     });
   };
 
-  const doChannelSearch = (channel) => {
-    setChannelName(channel);
-    setView('channel');
-    doSearch(channel);
-  };
+  // doChannelSearch is defined later (after doSearch) as a useCallback
+  // BUG-19 FIX: moved below doSearch to avoid calling doSearch internally
 
   const [currentTime, setCurrentTime] = useState(() => parseFloat(getStorageItem('currentTime', '0')) || 0);
   const lastSavedTimeRef = useRef(0);
@@ -111,16 +109,53 @@ export default function App() {
 
   const audioRef = useRef(null);
   const toastTimeoutRef = useRef(null);
+  // BUG-11 FIX: Use refs for quality and autoTheme so playSong never needs
+  // them in its dependency array, eliminating expensive callback re-creations.
+  const qualityRef = useRef(quality);
+  const autoThemeRef = useRef(autoTheme);
+  // BUG-13 FIX: volumeRef so playSong can reset volume before next song
+  const volumeRef = useRef(volume);
+
+  const currentRef = useRef(current);
+  const queueRef = useRef(queue);
+  const historyRef = useRef(history);
+  const shuffleRef = useRef(shuffle);
+  const repeatRef = useRef(repeat);
+  const autoPlayRef = useRef(autoPlay);
+  const resultsRef = useRef(results);
+  const currentTimeRef = useRef(currentTime);
 
   useEffect(() => {
     setStorageJSON('playlists', playlists);
   }, [playlists]);
 
+  // BUG-11 FIX: Keep refs in sync with state so playSong reads latest values
+  useEffect(() => { qualityRef.current = quality; }, [quality]);
+  useEffect(() => { autoThemeRef.current = autoTheme; }, [autoTheme]);
+  // BUG-13 FIX: Keep volumeRef in sync
+  useEffect(() => { volumeRef.current = volume; }, [volume]);
+
+  // Sync state refs to prevent stale closures in stable callback handlers (BUG-11, BUG-14, BUG-16)
+  useEffect(() => { currentRef.current = current; }, [current]);
+  useEffect(() => { queueRef.current = queue; }, [queue]);
+  useEffect(() => { historyRef.current = history; }, [history]);
+  useEffect(() => { shuffleRef.current = shuffle; }, [shuffle]);
+  useEffect(() => { repeatRef.current = repeat; }, [repeat]);
+  useEffect(() => { autoPlayRef.current = autoPlay; }, [autoPlay]);
+  useEffect(() => { resultsRef.current = results; }, [results]);
+  useEffect(() => { currentTimeRef.current = currentTime; }, [currentTime]);
+
   useEffect(() => {
-    if (current) setStorageJSON('current', current);
+    // BUG-22 FIX: Always write current (even null) so clearing current is persisted
+    setStorageJSON('current', current);
     setStorageJSON('queue', queue);
     setStorageJSON('history', history);
   }, [current, queue, history]);
+
+  // BUG-54 FIX: Update browser tab title to reflect currently playing song
+  useEffect(() => {
+    document.title = current ? `${current.title} – Frog Music` : 'Frog Music';
+  }, [current]);
 
   useEffect(() => {
     // Throttle: localStorage sirf har 5 seconds mein save karo
@@ -162,6 +197,14 @@ export default function App() {
     toastTimeoutRef.current = setTimeout(() => setToastMsg(''), 2200);
   };
 
+  // BUG-21 FIX: Clean up toast timeout on unmount to prevent setState on
+  // unmounted component (especially triggered by React StrictMode double-invoke)
+  useEffect(() => {
+    return () => {
+      if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+    };
+  }, []);
+
   const toggleLike = (id, title) => {
     addToPlaylist("Liked Songs", { id, title, channel: current?.channel || 'Frog Music', duration: current?.duration || 0, thumbnail: current?.thumbnail });
   };
@@ -200,6 +243,26 @@ export default function App() {
     setError(null);
     try {
       const res = await fetch(api.search(q));
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setResults(data);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // BUG-19 FIX: doChannelSearch no longer calls doSearch (which resets view to
+  // 'search'). It fetches data directly and sets view to 'channel' properly.
+  const doChannelSearch = useCallback(async (channel) => {
+    setChannelName(channel);
+    setSearchQuery(channel);
+    setView('channel');
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(api.search(channel));
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       setResults(data);
@@ -263,22 +326,34 @@ export default function App() {
         const ctx = canvas.getContext('2d');
         canvas.width = img.width;
         canvas.height = img.height;
-        ctx.drawImage(img, 0, 0);
-        const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-        let r=0, g=0, b=0;
-        for (let i=0; i<data.length; i+=40) { // sample every 10th pixel
-          r += data[i]; g += data[i+1]; b += data[i+2];
+        try {
+          ctx.drawImage(img, 0, 0);
+          // BUG-15 FIX: getImageData throws SecurityError when YouTube's CDN
+          // doesn't return CORS headers. Catch it and fall back to default color.
+          const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+          let r=0, g=0, b=0;
+          for (let i=0; i<data.length; i+=40) { // sample every 10th pixel
+            r += data[i]; g += data[i+1]; b += data[i+2];
+          }
+          const count = data.length / 40;
+          const hex = "#" + ((1 << 24) + (Math.round(r/count) << 16) + (Math.round(g/count) << 8) + Math.round(b/count)).toString(16).slice(1);
+          resolve(hex);
+        } catch (e) {
+          // CORS / SecurityError — use default accent colour
+          resolve('#4E9F3D');
         }
-        const count = data.length / 40;
-        const hex = "#" + ((1 << 24) + (Math.round(r/count) << 16) + (Math.round(g/count) << 8) + Math.round(b/count)).toString(16).slice(1);
-        resolve(hex);
       };
-      img.onerror = () => resolve('#FF0000');
+      img.onerror = () => resolve('#4E9F3D');
     });
   };
 
   const playSong = useCallback(async (song) => {
-    if (current) setHistory(prev => [...prev, current]);
+    // Reset play progress metrics to prevent visual jumps from the previous song
+    setCurrentTime(0);
+    setDuration(0);
+
+    const prevSong = currentRef.current;
+    if (prevSong) setHistory(prev => [...prev, prevSong]);
     setCurrent(song);
 
     // Track play count for Smart Playlists
@@ -299,16 +374,14 @@ export default function App() {
       return updatedPlaylists;
     });
 
-    // Auto-theme: background mein color extract karo, play ko block mat karo
-    if (autoTheme) {
+    // BUG-11 FIX: Read from refs so this callback is stable (no quality/autoTheme deps)
+    if (autoThemeRef.current) {
       getDominantColor(song.thumbnail).then(color => setThemeColor(color));
     }
 
-    const currentQuality = quality;
     try {
-      // Stream aur lyrics parallel mein fetch karo — ~50% faster
       const [streamRes, lyricsRes] = await Promise.all([
-        fetch(api.stream(song.id, currentQuality)),
+        fetch(api.stream(song.id, qualityRef.current)),
         fetch(api.lyrics(song.id))
       ]);
       const [data, ldata] = await Promise.all([
@@ -320,6 +393,9 @@ export default function App() {
       setLyrics(ldata.lyrics || null);
 
       const audio = audioRef.current;
+      // BUG-13 FIX: Reset volume to current level before playing a new song
+      // so the fade-out from the previous track doesn't carry over.
+      audio.volume = volumeRef.current;
       audio.src = data.stream_url;
       await audio.play();
       setIsPlaying(true);
@@ -327,7 +403,8 @@ export default function App() {
       showToast('❌ ' + err.message);
       setIsPlaying(false);
     }
-  }, [current, autoTheme, quality]);
+  // Stable callback dependency array — zero re-registrations
+  }, []);
 
   // ── Radio / Autoplay (defined after playSong to avoid TDZ) ───
   const fetchMusicRadio = useCallback(async (song) => {
@@ -390,16 +467,26 @@ export default function App() {
   }, [results, mode, autoPlay, fetchVideoRadio]);
 
   const togglePlay = useCallback(async () => {
-    if (!current) return;
+    const currentSong = currentRef.current;
+    if (!currentSong) return;
     const audio = audioRef.current;
-    
+
     if (!audio.src || audio.src === window.location.href) {
       try {
-        const res = await fetch(api.stream(current.id));
+        const res = await fetch(api.stream(currentSong.id));
         const data = await res.json();
         if (data.error) throw new Error(data.error);
         audio.src = data.stream_url;
-        audio.currentTime = currentTime;
+        // BUG-12 FIX: Wait for canplay before seeking.
+        // BUG-18 FIX: Add upper-bound check against duration to prevent seeking beyond end.
+        audio.addEventListener('canplay', () => {
+          const storedTime = currentTimeRef.current;
+          if (audio.duration && storedTime >= audio.duration) {
+            audio.currentTime = 0;
+          } else if (storedTime > 0) {
+            audio.currentTime = storedTime;
+          }
+        }, { once: true });
       } catch (err) {
         showToast('❌ ' + err.message);
         return;
@@ -415,30 +502,57 @@ export default function App() {
       audio.pause();
       setIsPlaying(false);
     }
-  }, [current, currentTime]);
+  // Stable callback dependency array — zero re-registrations
+  }, []);
 
+  // BUG-10 FIX: Shuffle now actually randomizes song selection
   const playNext = useCallback(() => {
-    if (queue.length > 0) {
-      const [next, ...rest] = queue;
+    const currentQueue = queueRef.current;
+    const currentRepeat = repeatRef.current;
+    const currentResults = resultsRef.current;
+    const currentSong = currentRef.current;
+    const currentShuffle = shuffleRef.current;
+
+    if (currentQueue.length > 0) {
+      let next, rest;
+      if (currentShuffle) {
+        const idx = Math.floor(Math.random() * currentQueue.length);
+        next = currentQueue[idx];
+        rest = currentQueue.filter((_, i) => i !== idx);
+      } else {
+        [next, ...rest] = currentQueue;
+      }
       setQueue(rest);
       playSong(next);
-    } else if (repeat === 'all' && results.length > 0) {
-      const idx = results.findIndex(s => s.id === current?.id);
-      playSong(results[(idx + 1) % results.length]);
+    } else if (currentRepeat === 'all' && currentResults.length > 0) {
+      const idx = currentResults.findIndex(s => s.id === currentSong?.id);
+      const nextIdx = currentShuffle
+        ? Math.floor(Math.random() * currentResults.length)
+        : (idx + 1) % currentResults.length;
+      playSong(currentResults[nextIdx]);
     }
-  }, [queue, repeat, results, current, playSong]);
+  // Stable callback dependency array — zero re-registrations
+  }, [playSong]);
 
   const playPrev = useCallback(() => {
     const audio = audioRef.current;
+    const currentHistory = historyRef.current;
+
     if (audio.currentTime > 3) {
       audio.currentTime = 0;
-    } else if (history.length > 0) {
-      const prevHistory = [...history];
+    } else if (currentHistory.length > 0) {
+      const prevHistory = [...currentHistory];
       const prev = prevHistory.pop();
       setHistory(prevHistory);
       playSong(prev);
+    } else {
+      // BUG-20 FIX: When history is empty, restart current song instead of
+      // doing nothing (which gives the user no feedback)
+      audio.currentTime = 0;
+      if (audio.paused) audio.play().catch(() => {});
     }
-  }, [history, playSong]);
+  // Stable callback dependency array — zero re-registrations
+  }, [playSong]);
 
   useEffect(() => {
     setStorageItem('quality', quality);
@@ -461,6 +575,7 @@ export default function App() {
     });
   };
 
+  // Register audio handlers once on mount and keep them synchronized via refs (BUG-13, BUG-14)
   useEffect(() => {
     const audio = audioRef.current;
     const handleTimeUpdate = () => {
@@ -468,20 +583,26 @@ export default function App() {
       setDuration(audio.duration || 0);
 
       // Simple Fade-out at end (last 2 seconds)
+      const currentVolume = volumeRef.current;
       if (audio.duration && audio.duration - audio.currentTime < 2) {
         const fadeRatio = (audio.duration - audio.currentTime) / 2;
-        audio.volume = volume * fadeRatio;
+        audio.volume = currentVolume * fadeRatio;
       } else {
-        audio.volume = volume;
+        audio.volume = currentVolume;
       }
     };
     const handleEnded = async () => {
-      if (repeat === 'one') {
+      const currentRepeat = repeatRef.current;
+      const currentQueue = queueRef.current;
+      const currentSong = currentRef.current;
+      const currentAutoPlay = autoPlayRef.current;
+
+      if (currentRepeat === 'one') {
         audio.play();
-      } else if (queue.length > 0) {
+      } else if (currentQueue.length > 0) {
         playNext();
-      } else if (autoPlay && current) {
-        const startedRadio = await fetchMusicRadio(current);
+      } else if (currentAutoPlay && currentSong) {
+        const startedRadio = await fetchMusicRadio(currentSong);
         if (!startedRadio) {
           playNext();
         }
@@ -497,7 +618,8 @@ export default function App() {
       audio.removeEventListener('timeupdate', handleTimeUpdate);
       audio.removeEventListener('ended', handleEnded);
     };
-  }, [repeat, queue, current, playNext, volume]);
+  // Only register once — handlers will dynamically read the latest state from refs
+  }, [playNext, fetchMusicRadio]);
 
   useEffect(() => {
     if (audioRef.current) {

@@ -5,40 +5,67 @@ No Flask, no extra dependencies — just Python + yt-dlp
 import json
 import os
 import threading
+import time
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from socketserver import ThreadingMixIn
 from urllib.parse import urlparse, parse_qs, quote
 import yt_dlp
 import requests
-import time
 
-# ── Simple in-memory cache ────────────────────────────────────────────────────
+# ── In-memory cache with TTL ──────────────────────────────────────────────────
+# BUG-01 FIX: Entries now expire so stale YouTube stream URLs are never returned.
 _cache = {}
 _lock = threading.Lock()
 
+DEFAULT_TTL = 7200  # 2 hours — stream URLs expire before this
+
 def get_cache(key):
     with _lock:
-        return _cache.get(key)
+        entry = _cache.get(key)
+        if entry is None:
+            return None
+        if time.time() > entry["expires"]:
+            del _cache[key]
+            return None
+        return entry["data"]
 
-def set_cache(key, value):
+def set_cache(key, value, ttl=DEFAULT_TTL):
     with _lock:
-        _cache[key] = value
+        _cache[key] = {"data": value, "expires": time.time() + ttl}
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 FRONTEND_DIR = os.path.abspath(os.path.join(BASE_DIR, "..", "frontend"))
 
 # ── Keep-Alive (Ping) ────────────────────────────────────────────────────────
+# BUG-08 FIX: Added exponential backoff so repeated failures don't spam logs.
 def keep_alive(url):
-    """Simple loop to ping the server every 10 minutes to prevent sleeping."""
+    """Ping the server every 10 minutes to prevent sleeping on free-tier hosts.
+    Uses exponential backoff (max 1 hour) on repeated failures."""
+    wait = 600
     while True:
+        time.sleep(wait)
         try:
-            # We use a short timeout so we don't hang if the server is slow
             requests.get(url, timeout=10)
             print(f"  [Keep-Alive] Pinged {url} successfully.")
+            wait = 600  # reset on success
         except Exception as e:
             print(f"  [Keep-Alive] Ping failed: {e}")
-        # Wait 10 minutes (600 seconds)
-        time.sleep(600)
+            wait = min(wait * 2, 3600)  # exponential backoff, cap at 1 hour
+
+# ── Allowed proxy hosts (BUG-05 FIX: SSRF prevention) ───────────────────────
+ALLOWED_PROXY_HOSTS = {
+    'googlevideo.com', 'youtube.com', 'ytimg.com',
+    'yt.chocolatemoo53.com', 'invidious.privacydev.net',
+    'invidious.lunar.icu', 'invidious.no-logs.com', 'invidious.flokinet.to',
+}
+
+def _is_allowed_proxy_url(url):
+    """Validate that a proxy URL belongs to an allowed host (prevents SSRF)."""
+    try:
+        host = urlparse(url).netloc.split(':')[0].lower()
+        return any(host == h or host.endswith('.' + h) for h in ALLOWED_PROXY_HOSTS)
+    except Exception:
+        return False
 
 # ── Invidious Fallback APIs ──────────────────────────────────────────────────
 INVIDIOUS_INSTANCES = [
@@ -286,13 +313,13 @@ class Handler(BaseHTTPRequestHandler):
             self._json(hit)
             return
         opts = {
-            "quiet": True, 
-            "no_warnings": True, 
-            "extract_flat": True, 
+            "quiet": True,
+            "no_warnings": True,
+            "extract_flat": True,
             "skip_download": True,
             "socket_timeout": 8,
             "retries": 1,
-            "js_runtimes": {"deno": {}, "node": {}, "bun": {}},
+            # BUG-06 FIX: Removed invalid js_runtimes key (not a valid yt-dlp option)
             # Use mweb client — avoids YouTube bot-detection that blocks default web client
             "extractor_args": {"youtube": {"player_client": ["mweb"]}},
         }
@@ -333,15 +360,15 @@ class Handler(BaseHTTPRequestHandler):
             self._json(hit)
             return
         opts = {
-            "quiet": True, 
-            "no_warnings": True, 
+            "quiet": True,
+            "no_warnings": True,
             "skip_download": True,
             "socket_timeout": 8,
             "retries": 1,
-            "js_runtimes": {"deno": {}, "node": {}, "bun": {}},
+            # BUG-06 FIX: Removed invalid js_runtimes key
             "http_headers": {
                 "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5 Mobile/15E148 Safari/604.1",
-            }
+            },
         }
         try:
             print(f"  [Stream] Querying yt-dlp for video stream: {vid}")
@@ -389,6 +416,11 @@ class Handler(BaseHTTPRequestHandler):
         if not url_to_proxy:
             self.send_error(400, "Missing url to proxy")
             return
+        # BUG-05 FIX: Reject requests to non-whitelisted hosts (SSRF prevention)
+        if not _is_allowed_proxy_url(url_to_proxy):
+            print(f"  [Proxy] Blocked disallowed URL: {url_to_proxy[:80]}")
+            self.send_error(403, "Proxy URL not allowed")
+            return
         
         headers = {
             "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5 Mobile/15E148 Safari/604.1"
@@ -401,6 +433,17 @@ class Handler(BaseHTTPRequestHandler):
         try:
             # Stream the data in chunks of 4KB to avoid memory issues
             resp = requests.get(url_to_proxy, headers=headers, stream=True, timeout=15)
+            
+            # BUG-02 FIX: Guard against proxying extremely large files (max 150MB) to prevent RAM/bandwidth exhaustion
+            cl = resp.headers.get("Content-Length")
+            if cl:
+                try:
+                    if int(cl) > 150 * 1024 * 1024:
+                        self.send_error(413, "Payload Too Large")
+                        return
+                except ValueError:
+                    pass
+
             
             self.send_response(resp.status_code)
             for h in ["Content-Type", "Content-Length", "Content-Range", "Accept-Ranges"]:
@@ -420,45 +463,60 @@ class Handler(BaseHTTPRequestHandler):
                 pass
 
     def _lyrics(self, vid):
-        lrc = [
-            {"time": 0, "text": "♪ Music Playing ♪"},
-            {"time": 10, "text": "Welcome to Music"},
-            {"time": 20, "text": "Enjoy your favorite tracks"},
-            {"time": 30, "text": "With high-fidelity sound"},
-            {"time": 40, "text": "And premium features"},
-            {"time": 50, "text": "♪ Instrumental Break ♪"},
-            {"time": 70, "text": "Music: Your Music, Your Way"},
-            {"time": 90, "text": "Thank you for listening!"}
-        ]
-        self._json({"lyrics": lrc})
+        # BUG-03 FIX: Returning null instead of hardcoded placeholder so the
+        # frontend shows "No lyrics available" rather than misleading fake text.
+        # TODO: Integrate a real lyrics API (e.g. lrclib.net) here.
+        self._json({"lyrics": None})
 
     def _related(self, vid):
+        # BUG-04 FIX: Old code used extract_flat=True on a watch URL which never
+        # returns related entries. Now Invidious (which has real recommendedVideos)
+        # is tried first; yt-dlp search is the fallback.
         key = f"related:{vid}"
         hit = get_cache(key)
         if hit:
             self._json(hit)
             return
-        opts = {
+
+        # Primary: Invidious has actual related/recommended videos
+        print(f"  [Related] Trying Invidious for related: {vid}")
+        results = invidious_related(vid)
+        if results:
+            set_cache(key, results)
+            self._json(results)
+            return
+
+        # Fallback: get video title via yt-dlp, then search for similar tracks
+        info_opts = {
+            "quiet": True,
+            "no_warnings": True,
+            "skip_download": True,
+            "socket_timeout": 8,
+            "retries": 1,
+            "extractor_args": {"youtube": {"player_client": ["mweb"]}},
+        }
+        search_opts = {
             "quiet": True,
             "no_warnings": True,
             "extract_flat": True,
             "skip_download": True,
             "socket_timeout": 8,
             "retries": 1,
-            "js_runtimes": {"deno": {}, "node": {}, "bun": {}},
             "extractor_args": {"youtube": {"player_client": ["mweb"]}},
         }
         try:
-            print(f"  [Related] Querying yt-dlp for related: {vid}")
-            with yt_dlp.YoutubeDL(opts) as ydl:
+            print(f"  [Related] Fetching video info for fallback search: {vid}")
+            with yt_dlp.YoutubeDL(info_opts) as ydl:
                 info = ydl.extract_info(f"https://www.youtube.com/watch?v={vid}", download=False)
-                entries = info.get("entries") or []
-                if not entries:
-                    query = info.get("title", "")
-                    info = ydl.extract_info(f"ytsearch3:{query}", download=False)
-                    entries = info.get("entries") or []
+            title = info.get("title", "")
+            channel = info.get("channel") or info.get("uploader", "")
+            query = f"{title} {channel}".strip()
+            print(f"  [Related] Searching for similar via yt-dlp: {query}")
+            with yt_dlp.YoutubeDL(search_opts) as ydl:
+                search_info = ydl.extract_info(f"ytsearch5:{query}", download=False)
+            entries = search_info.get("entries") or []
             results = []
-            for e in entries[:5]:
+            for e in (entries or []):
                 if not e or e.get("id") == vid: continue
                 results.append({
                     "id": e.get("id"), "title": e.get("title", "Unknown"),
@@ -469,16 +527,22 @@ class Handler(BaseHTTPRequestHandler):
             set_cache(key, results)
             self._json(results)
         except Exception as ex:
-            print(f"  [Related] yt-dlp related fetch failed/timed out: {ex}. Trying Invidious fallback...")
-            results = invidious_related(vid)
-            if results:
-                set_cache(key, results)
-                self._json(results)
-            else:
-                self._json({"error": f"Related fetch failed: {str(ex)}"}, 500)
+            print(f"  [Related] All methods failed: {ex}")
+            self._json({"error": f"Related fetch failed: {str(ex)}"}, 500)
 
     def log_message(self, fmt, *args):
-        print(f"  {fmt % args}")
+        # BUG-07 FIX: Add visual level tags [🔴 ERROR] or [🟡 WARN] depending on HTTP response code to make logs easier to debug
+        msg = fmt % args
+        prefix = "  [HTTP]"
+        try:
+            status_code = int(args[1])
+            if status_code >= 500:
+                prefix = "  [HTTP 🔴 ERROR]"
+            elif status_code >= 400:
+                prefix = "  [HTTP 🟡 WARN]"
+        except (IndexError, ValueError):
+            pass
+        print(f"{prefix} {msg}")
 
 class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
     """Handle each request in a separate thread (non-blocking)."""
@@ -487,7 +551,7 @@ class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
 
 
 if __name__ == "__main__":
-    import os
+    # BUG-09 FIX: Removed duplicate `import os` (already imported at top of file)
     # Default to 5000 for local development, but use PORT env var for deployment
     port = int(os.environ.get("PORT", 5000))
     

@@ -1,10 +1,49 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { fmt } from '../utils';
 
-function fmt(s) {
-  if (!s || isNaN(s)) return '0:00';
-  const mins = Math.floor(s / 60);
-  const secs = String(Math.floor(s % 60)).padStart(2, '0');
-  return `${mins}:${secs}`;
+// ── BUG-30 FIX: Module-level AudioContext singleton ─────────────────────────
+// createMediaElementSource() can only be called ONCE per <audio> element.
+// If NowPlaying mounts, unmounts, and re-mounts, we must reuse the same pipeline
+// rather than creating a new AudioContext (which throws "already connected").
+let _audioCtx = null;
+let _analyzer = null;
+let _bassFilter = null;
+let _midFilter = null;
+let _trebleFilter = null;
+
+function getAudioPipeline(audioElement) {
+  if (_analyzer) {
+    // BUG-31 FIX: Resume context if it was suspended (e.g. after tab switch)
+    if (_audioCtx && _audioCtx.state === 'suspended') {
+      _audioCtx.resume();
+    }
+    return { analyzer: _analyzer, bassFilter: _bassFilter, midFilter: _midFilter, trebleFilter: _trebleFilter };
+  }
+  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const analyzer = audioCtx.createAnalyser();
+  analyzer.fftSize = 256;
+  const source = audioCtx.createMediaElementSource(audioElement);
+  const bassFilter = audioCtx.createBiquadFilter();
+  bassFilter.type = 'lowshelf';
+  bassFilter.frequency.value = 200;
+  const midFilter = audioCtx.createBiquadFilter();
+  midFilter.type = 'peaking';
+  midFilter.frequency.value = 1000;
+  midFilter.Q.value = 1;
+  const trebleFilter = audioCtx.createBiquadFilter();
+  trebleFilter.type = 'highshelf';
+  trebleFilter.frequency.value = 3000;
+  source.connect(bassFilter);
+  bassFilter.connect(midFilter);
+  midFilter.connect(trebleFilter);
+  trebleFilter.connect(analyzer);
+  analyzer.connect(audioCtx.destination);
+  _audioCtx = audioCtx;
+  _analyzer = analyzer;
+  _bassFilter = bassFilter;
+  _midFilter = midFilter;
+  _trebleFilter = trebleFilter;
+  return { analyzer, bassFilter, midFilter, trebleFilter };
 }
 
 export default function NowPlaying({ 
@@ -45,40 +84,16 @@ export default function NowPlaying({
     if (!audioRef.current) return;
 
     try {
-      if (!analyzerRef.current) {
-        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        const analyzer = audioContext.createAnalyser();
-        analyzer.fftSize = 256;
-        
-        const source = audioContext.createMediaElementSource(audioRef.current);
-        
-        const bassFilter = audioContext.createBiquadFilter();
-        bassFilter.type = 'lowshelf';
-        bassFilter.frequency.value = 200;
-        
-        const midFilter = audioContext.createBiquadFilter();
-        midFilter.type = 'peaking';
-        midFilter.frequency.value = 1000;
-        midFilter.Q.value = 1;
+      // BUG-30 FIX: Use singleton — never calls createMediaElementSource twice
+      const { analyzer, bassFilter, midFilter, trebleFilter } = getAudioPipeline(audioRef.current);
+      analyzerRef.current = analyzer;
+      bassFilterRef.current = bassFilter;
+      midFilterRef.current = midFilter;
+      trebleFilterRef.current = trebleFilter;
 
-        const trebleFilter = audioContext.createBiquadFilter();
-        trebleFilter.type = 'highshelf';
-        trebleFilter.frequency.value = 3000;
+      // BUG-31 FIX: Always resume context on open (handles suspended state)
+      if (_audioCtx && _audioCtx.state === 'suspended') _audioCtx.resume();
 
-        source.connect(bassFilter);
-        bassFilter.connect(midFilter);
-        midFilter.connect(trebleFilter);
-        trebleFilter.connect(analyzer);
-        analyzer.connect(audioContext.destination);
-        
-        analyzerRef.current = analyzer;
-        sourceRef.current = source;
-        bassFilterRef.current = bassFilter;
-        midFilterRef.current = midFilter;
-        trebleFilterRef.current = trebleFilter;
-      }
-
-      const analyzer = analyzerRef.current;
       const bufferLength = analyzer.frequencyBinCount;
       const dataArray = new Uint8Array(bufferLength);
       const canvas = canvasRef.current;
@@ -86,11 +101,13 @@ export default function NowPlaying({
 
       const draw = () => {
         if (!visualizerOn || !ctx) return;
+        // BUG-34 FIX: Store ref BEFORE scheduling next frame, so cleanup
+        // cancelAnimationFrame is always called on a valid ID
         animationRef.current = requestAnimationFrame(draw);
         analyzer.getByteFrequencyData(dataArray);
 
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
+
         if (vizMode === 'bars') {
           const barWidth = (canvas.width / bufferLength) * 2;
           let x = 0;
@@ -142,7 +159,8 @@ export default function NowPlaying({
       if (visualizerOn) draw();
 
       return () => {
-        cancelAnimationFrame(animationRef.current);
+        // BUG-34 FIX: Guard against null animationRef on fast unmount
+        if (animationRef.current) cancelAnimationFrame(animationRef.current);
       };
     } catch (e) {
       console.error("Audio Pipeline Error:", e);
@@ -155,14 +173,15 @@ export default function NowPlaying({
     if (trebleFilterRef.current) trebleFilterRef.current.gain.value = eqSettings.treble;
   }, [eqSettings]);
 
-  // Sync lyrics scroll
+  // BUG-32 FIX: Debounce lyrics scroll — currentTime fires many times per second,
+  // calling scrollIntoView on every tick causes layout thrash and jank.
   useEffect(() => {
-    if (showLyrics && lyricsRef.current) {
-      const active = lyricsRef.current.querySelector('.lyric-line.active');
-      if (active) {
-        active.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
-    }
+    if (!showLyrics || !lyricsRef.current) return;
+    const timer = setTimeout(() => {
+      const active = lyricsRef.current?.querySelector('.lyric-line.active');
+      if (active) active.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 150);
+    return () => clearTimeout(timer);
   }, [currentTime, showLyrics]);
 
   const pct = duration ? (currentTime / duration) * 100 : 0;
@@ -195,6 +214,14 @@ export default function NowPlaying({
             </button>
             <button className="p-btn" onClick={() => { setShowEq(!showEq); setShowSleep(false); setShowLyrics(false); }} style={{ color: showEq ? themeColor : '#fff' }}>
               <svg viewBox="0 0 24 24" style={{width:'24px', height:'24px'}}><path d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z"/></svg>
+            </button>
+            {/* BUG-33 FIX: Added visualizer on/off toggle — previously visualizerOn state
+                existed but had no UI button, making it impossible to turn off */}
+            <button className="p-btn" onClick={() => setVisualizerOn(v => !v)} title="Toggle Visualizer"
+              style={{ color: visualizerOn ? themeColor : 'rgba(255,255,255,0.35)' }}>
+              <svg viewBox="0 0 24 24" style={{width:'24px', height:'24px'}}>
+                <path d="M3 18h2v-6H3v6zm4 0h2v-2H7v2zm0-4h2v-2H7v2zm4 4h2V6h-2v12zm4 0h2v-4h-2v4zm4 0h2v-8h-2v8z"/>
+              </svg>
             </button>
           </div>
         </div>

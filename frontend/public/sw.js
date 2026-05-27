@@ -2,6 +2,9 @@ const CACHE_NAME = 'frog-music-cache-v2';
 const OFFLINE_URL = '/';
 
 self.addEventListener('install', (e) => {
+  e.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => cache.add(OFFLINE_URL))
+  );
   self.skipWaiting();
 });
 
@@ -42,7 +45,8 @@ self.addEventListener('fetch', (event) => {
         // Fetch new version in background to update cache dynamically
         fetch(event.request).then((networkResponse) => {
           if (networkResponse.status === 200) {
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, networkResponse));
+            const networkResponseClone = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, networkResponseClone));
           }
         }).catch(() => {});
         return cachedResponse;

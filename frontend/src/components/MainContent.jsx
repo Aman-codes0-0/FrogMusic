@@ -1,11 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import logoImg from '../assets/logo.png';
 import bannerImg from '../assets/banner.png';
-
-function fmt(s) {
-  if (!s || isNaN(s)) return '0:00';
-  return `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
-}
+import { fmt, getArtistPlaceholder } from '../utils'; // BUG-29: use shared utility
 
 export default function MainContent({
   view,
@@ -44,19 +41,120 @@ export default function MainContent({
   setActivePlaylist
 }) {
   const [showAddMenu, setShowAddMenu] = useState(null);
+  const addMenuRef = useRef(null);
+
+  // BUG-25: Inline playlist name modal state (replaces window.prompt)
+  const [showNewPlaylistModal, setShowNewPlaylistModal] = useState(false);
+  const [newPlaylistName, setNewPlaylistName] = useState('');
+  const newPlaylistInputRef = useRef(null);
 
   const isSaved = (id) => savedVideos.some(v => v.id === id);
 
+  // BUG-24 FIX: Close add-menu when user clicks anywhere outside it
+  useEffect(() => {
+    if (!showAddMenu) return;
+    const handleOutsideClick = (e) => {
+      if (addMenuRef.current && !addMenuRef.current.contains(e.target)) {
+        setShowAddMenu(null);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, [showAddMenu]);
+
+  // BUG-25 FIX: Focus input when modal opens
+  useEffect(() => {
+    if (showNewPlaylistModal) {
+      setTimeout(() => newPlaylistInputRef.current?.focus(), 50);
+    }
+  }, [showNewPlaylistModal]);
+
   const handleCreatePlaylist = () => {
-    const name = window.prompt("Playlist name:");
+    // BUG-25 FIX: Replaced window.prompt() (blocked in iframes/PWA) with
+    // an inline modal portal rendered to document.body
+    setNewPlaylistName('');
+    setShowNewPlaylistModal(true);
+  };
+
+  const handleCreatePlaylistConfirm = () => {
+    const name = newPlaylistName.trim();
     if (name && !playlists[name]) {
       setPlaylists({ ...playlists, [name]: [] });
     }
+    setShowNewPlaylistModal(false);
+    setNewPlaylistName('');
   };
 
   const isLiked = (id) => playlists["Liked Songs"]?.some(s => s.id === id);
 
   if (error) return <main className="main"><div className="empty-msg">Error: {error}</div></main>;
+
+  // BUG-25 FIX: New playlist name modal rendered via portal to document.body
+  // so it floats over all views regardless of which view is currently active.
+  const NewPlaylistModal = showNewPlaylistModal ? createPortal(
+    <div
+      onClick={() => setShowNewPlaylistModal(false)}
+      style={{
+        position: 'fixed', inset: 0,
+        background: 'rgba(0,0,0,0.75)',
+        backdropFilter: 'blur(8px)',
+        zIndex: 600,
+        display: 'flex', alignItems: 'center', justifyContent: 'center'
+      }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          background: 'rgba(22,22,32,0.98)',
+          border: '1px solid rgba(255,255,255,0.12)',
+          borderRadius: '16px',
+          padding: '32px',
+          width: '320px',
+          boxShadow: '0 24px 60px rgba(0,0,0,0.8)',
+        }}
+      >
+        <h3 style={{ marginBottom: '20px', fontSize: '18px', fontWeight: '700' }}>New Playlist</h3>
+        <input
+          ref={newPlaylistInputRef}
+          type="text"
+          placeholder="Playlist name..."
+          value={newPlaylistName}
+          onChange={e => setNewPlaylistName(e.target.value)}
+          onKeyDown={e => {
+            if (e.key === 'Enter') handleCreatePlaylistConfirm();
+            if (e.key === 'Escape') setShowNewPlaylistModal(false);
+          }}
+          style={{
+            width: '100%',
+            background: 'rgba(255,255,255,0.07)',
+            border: '1px solid rgba(255,255,255,0.12)',
+            borderRadius: '10px',
+            padding: '12px 14px',
+            color: '#fff',
+            fontSize: '14px',
+            marginBottom: '20px',
+            outline: 'none',
+            fontFamily: 'inherit',
+          }}
+        />
+        <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+          <button
+            onClick={() => setShowNewPlaylistModal(false)}
+            style={{ padding: '8px 18px', background: 'rgba(255,255,255,0.07)', border: 'none', borderRadius: '8px', color: '#fff', cursor: 'pointer', fontFamily: 'inherit' }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleCreatePlaylistConfirm}
+            style={{ padding: '8px 18px', background: 'var(--accent)', border: 'none', borderRadius: '8px', color: '#fff', cursor: 'pointer', fontWeight: '600', fontFamily: 'inherit' }}
+          >
+            Create
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  ) : null;
 
   const Loading = () => (
     <div style={{position:'absolute', top:0, left:0, right:0, height:'3px', background:'var(--accent)', zIndex:100, animation:'loading-bar 2s infinite'}}>
@@ -66,46 +164,46 @@ export default function MainContent({
 
   if (view === 'artists') {
     const allArtists = [
-      { name: 'Arijit Singh', img: 'https://images.unsplash.com/photo-1493225255756-d9584f8606e9?w=300' },
-      { name: 'Sidhu Moose Wala', img: 'https://images.unsplash.com/photo-1520127877030-df4f6a4b33b9?w=300' },
-      { name: 'Diljit Dosanjh', img: 'https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?w=300' },
-      { name: 'The Weeknd', img: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=300' },
-      { name: 'Taylor Swift', img: 'https://images.unsplash.com/photo-1514525253361-bee8718a300a?w=300' },
-      { name: 'Badshah', img: 'https://ui-avatars.com/api/?name=Badshah&background=random' },
-      { name: 'Neha Kakkar', img: 'https://ui-avatars.com/api/?name=Neha+Kakkar&background=random' },
-      { name: 'Jubin Nautiyal', img: 'https://ui-avatars.com/api/?name=Jubin+Nautiyal&background=random' },
-      { name: 'Guru Randhawa', img: 'https://ui-avatars.com/api/?name=Guru+Randhawa&background=random' },
-      { name: 'Darshan Raval', img: 'https://ui-avatars.com/api/?name=Darshan+Raval&background=random' },
-      { name: 'Shreya Ghoshal', img: 'https://ui-avatars.com/api/?name=Shreya+Ghoshal&background=random' },
-      { name: 'Armaan Malik', img: 'https://ui-avatars.com/api/?name=Armaan+Malik&background=random' },
-      { name: 'Sunidhi Chauhan', img: 'https://ui-avatars.com/api/?name=Sunidhi+Chauhan&background=random' },
-      { name: 'Atif Aslam', img: 'https://ui-avatars.com/api/?name=Atif+Aslam&background=random' },
-      { name: 'Sonu Nigam', img: 'https://ui-avatars.com/api/?name=Sonu+Nigam&background=random' },
-      { name: 'KK', img: 'https://ui-avatars.com/api/?name=KK&background=random' },
-      { name: 'Lata Mangeshkar', img: 'https://ui-avatars.com/api/?name=Lata+Mangeshkar&background=random' },
-      { name: 'Kishore Kumar', img: 'https://ui-avatars.com/api/?name=Kishore+Kumar&background=random' },
-      { name: 'Mohit Chauhan', img: 'https://ui-avatars.com/api/?name=Mohit+Chauhan&background=random' },
-      { name: 'Pritam', img: 'https://ui-avatars.com/api/?name=Pritam&background=random' },
-      { name: 'Yo Yo Honey Singh', img: 'https://ui-avatars.com/api/?name=Honey+Singh&background=random' },
-      { name: 'Drake', img: 'https://ui-avatars.com/api/?name=Drake&background=random' },
-      { name: 'Justin Bieber', img: 'https://ui-avatars.com/api/?name=Justin+Bieber&background=random' },
-      { name: 'Ed Sheeran', img: 'https://ui-avatars.com/api/?name=Ed+Sheeran&background=random' },
-      { name: 'Dua Lipa', img: 'https://ui-avatars.com/api/?name=Dua+Lipa&background=random' },
-      { name: 'Ariana Grande', img: 'https://ui-avatars.com/api/?name=Ariana+Grande&background=random' },
-      { name: 'Billie Eilish', img: 'https://ui-avatars.com/api/?name=Billie+Eilish&background=random' },
-      { name: 'Post Malone', img: 'https://ui-avatars.com/api/?name=Post+Malone&background=random' },
-      { name: 'Bruno Mars', img: 'https://ui-avatars.com/api/?name=Bruno+Mars&background=random' },
-      { name: 'Eminem', img: 'https://ui-avatars.com/api/?name=Eminem&background=random' },
-      // ... and many more to reach 100+ list
-    ];
+      { name: 'Arijit Singh' },
+      { name: 'Sidhu Moose Wala' },
+      { name: 'Diljit Dosanjh' },
+      { name: 'The Weeknd' },
+      { name: 'Taylor Swift' },
+      { name: 'Badshah' },
+      { name: 'Neha Kakkar' },
+      { name: 'Jubin Nautiyal' },
+      { name: 'Guru Randhawa' },
+      { name: 'Darshan Raval' },
+      { name: 'Shreya Ghoshal' },
+      { name: 'Armaan Malik' },
+      { name: 'Sunidhi Chauhan' },
+      { name: 'Atif Aslam' },
+      { name: 'Sonu Nigam' },
+      { name: 'KK' },
+      { name: 'Lata Mangeshkar' },
+      { name: 'Kishore Kumar' },
+      { name: 'Mohit Chauhan' },
+      { name: 'Pritam' },
+      { name: 'Yo Yo Honey Singh' },
+      { name: 'Drake' },
+      { name: 'Justin Bieber' },
+      { name: 'Ed Sheeran' },
+      { name: 'Dua Lipa' },
+      { name: 'Ariana Grande' },
+      { name: 'Billie Eilish' },
+      { name: 'Post Malone' },
+      { name: 'Bruno Mars' },
+      { name: 'Eminem' }
+    ].map(a => ({ ...a, img: getArtistPlaceholder(a.name) }));
 
     // Generating 100 names for the grid
     const extendedList = [...allArtists];
     const extraNames = ["Raftaar", "Emiway Bantai", "Krsna", "Divine", "Seedhe Maut", "Ritviz", "Prateek Kuhad", "Anuv Jain", "Taba Chake", "The Local Train", "A.R. Rahman", "Amit Trivedi", "Vishal Dadlani", "Shekhar Ravjiani", "Alka Yagnik", "Udit Narayan", "Kumar Sanu", "Asha Bhosle", "R.D. Burman", "Jagjit Singh", "Nusrat Fateh Ali Khan", "Rahat Fateh Ali Khan", "Shafqat Amanat Ali", "Ali Zafar", "Asim Azhar", "Momina Mustehsan", "Katy Perry", "Coldplay", "Imagine Dragons", "One Direction", "Zayn Malik", "Harry Styles", "Shawn Mendes", "Camila Cabello", "Selena Gomez", "Miley Cyrus", "Lady Gaga", "Beyonce", "Rihanna", "Shakira", "Sia", "Halsey", "Lana Del Rey", "Olivia Rodrigo", "Kendrick Lamar", "Travis Scott", "Kanye West", "Jay Z", "Future", "21 Savage", "Lil Baby", "Young Thug", "J. Cole", "Doja Cat", "Megan Thee Stallion", "Cardi B", "Nicki Minaj", "Lil Nas X", "Charlie Puth", "Sam Smith", "Adele", "Sia", "Kygo", "Alan Walker", "Marshmello", "Martin Garrix", "Avicii", "David Guetta", "Calvin Harris", "Zedd", "The Chainsmokers", "Blackpink", "BTS", "Twice", "NewJeans", "Fifty Fifty", "Stray Kids", "Red Velvet", "Exo", "Got7"];
     
     extraNames.forEach(name => {
-      extendedList.push({ name, img: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random&color=fff` });
+      extendedList.push({ name, img: getArtistPlaceholder(name) });
     });
+
 
     return (
       <main className="main">
@@ -570,7 +668,7 @@ export default function MainContent({
             ) : (
               <div className="track-list">
                 {queue.map((s, i) => (
-                  <div key={`queue-${s.id}-${i}`} className="track-item" onClick={() => playSong(s)}>
+                  <div key={`queue-${s.id}-${i}`} className="track-item track-item-compact" onClick={() => playSong(s)}>
                     <div className="track-num">{i + 1}</div>
                     <div className={`track-heart ${isLiked(s.id) ? 'liked' : ''}`} onClick={(e) => { e.stopPropagation(); toggleLike(s.id, s.title); }}>
                       <svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
@@ -602,7 +700,7 @@ export default function MainContent({
             ) : (
               <div className="track-list">
                 {recentlyPlayed.map((s, i) => (
-                  <div key={`history-${s.id}-${i}`} className="track-item" onClick={() => playSong(s)}>
+                  <div key={`history-${s.id}-${i}`} className="track-item track-item-compact" onClick={() => playSong(s)}>
                     <div className="track-num">{i + 1}</div>
                     <div className={`track-heart ${isLiked(s.id) ? 'liked' : ''}`} onClick={(e) => { e.stopPropagation(); toggleLike(s.id, s.title); }}>
                       <svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
@@ -695,12 +793,30 @@ export default function MainContent({
       );
     }
 
-    // ── MUSIC MODE ─────────────────────────────────────────────────────────────
-    if (results.length === 0) return <main className="main">{loading && <Loading />}<div className="empty-msg">No results found</div></main>;
+    // BUG-26 FIX: Differentiate between "hasn't searched yet" and "searched but
+    // got 0 results". Previously, navigating to search view before typing anything
+    // showed "No results found" immediately, which was misleading.
+    if (results.length === 0) return (
+      <main className="main">
+        {loading && <Loading />}
+        {NewPlaylistModal}
+        {searchQuery.trim() === '' ? (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '50vh', gap: '16px', opacity: 0.7 }}>
+            <svg viewBox="0 0 24 24" style={{ width: 64, height: 64, fill: 'rgba(255,255,255,0.2)' }}>
+              <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+            </svg>
+            <p style={{ color: 'var(--text-muted)', fontSize: 16, fontWeight: 500 }}>Type something to search for music</p>
+          </div>
+        ) : (
+          <div className="empty-msg">No results found for "{searchQuery}"</div>
+        )}
+      </main>
+    );
     const topHit = results[0];
     return (
       <main className="main">
         {loading && <Loading />}
+        {NewPlaylistModal}
         <div className="header-section">
           <img className="header-art" src={topHit.thumbnail} alt="" />
           <div className="header-info">

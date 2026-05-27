@@ -4,14 +4,18 @@ import logoImg from '../assets/logo.png';
 export default function TopBar({ doSearch, mode, setMode, setView }) {
   const [query, setQuery] = useState('');
 
+  // BUG-42 FIX: Only depend on [query]. doSearch is a stable useCallback([], [])
+  // in App.jsx, so removing it from deps is safe. The old dep on [query, doSearch]
+  // caused duplicate searches when doSearch reference changed due to other state.
+  // BUG-43 FIX: Skip timer setup entirely for empty query (saves a setTimeout)
   useEffect(() => {
+    if (query.trim() === '') return;
     const st = setTimeout(() => {
-      if (query.trim() !== '') {
-        doSearch(query.trim());
-      }
+      doSearch(query.trim());
     }, 800);
     return () => clearTimeout(st);
-  }, [query, doSearch]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query]); // Intentionally exclude doSearch — it is guaranteed stable
 
   const handleKeyDown = (e) => {
     if (e.key === 'Enter') {
