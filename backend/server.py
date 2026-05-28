@@ -329,8 +329,8 @@ class Handler(BaseHTTPRequestHandler):
             "socket_timeout": 8,
             "retries": 1,
             "js_runtimes": {"node": {}, "deno": {}, "bun": {}, "quickjs": {}},
-            # Use mweb client — avoids YouTube bot-detection that blocks default web client
-            "extractor_args": {"youtube": {"player_client": ["mweb"]}},
+            # Use mobile/iOS clients to avoid YouTube bot detection blocks
+            "extractor_args": {"youtube": {"player_client": ["ios", "android", "mweb"]}},
         }
         try:
             print(f"  [Search] Querying yt-dlp for: {query}")
@@ -376,6 +376,8 @@ class Handler(BaseHTTPRequestHandler):
             "retries": 1,
             "check_formats": False,
             "js_runtimes": {"node": {}, "deno": {}, "bun": {}, "quickjs": {}},
+            # Use mobile/iOS clients to avoid YouTube bot detection blocks
+            "extractor_args": {"youtube": {"player_client": ["ios", "android", "mweb"]}},
             "http_headers": {
                 "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5 Mobile/15E148 Safari/604.1",
             },
@@ -501,7 +503,7 @@ class Handler(BaseHTTPRequestHandler):
             "retries": 1,
             "check_formats": False,
             "js_runtimes": {"node": {}, "deno": {}, "bun": {}, "quickjs": {}},
-            "extractor_args": {"youtube": {"player_client": ["mweb"]}},
+            "extractor_args": {"youtube": {"player_client": ["ios", "android", "mweb"]}},
         }
         search_opts = {
             "quiet": True,
@@ -511,7 +513,7 @@ class Handler(BaseHTTPRequestHandler):
             "socket_timeout": 8,
             "retries": 1,
             "js_runtimes": {"node": {}, "deno": {}, "bun": {}, "quickjs": {}},
-            "extractor_args": {"youtube": {"player_client": ["mweb"]}},
+            "extractor_args": {"youtube": {"player_client": ["ios", "android", "mweb"]}},
         }
         try:
             print(f"  [Related] Fetching video info for fallback search: {vid}")
