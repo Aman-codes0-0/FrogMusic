@@ -5,7 +5,7 @@
  * In production:  VITE_API_BASE = "https://YOUR-USERNAME-ytmusic-backend.hf.space"
  *                 → All /api/* calls go directly to HuggingFace Spaces backend
  */
-const BASE = import.meta.env.VITE_API_BASE || '';
+const BASE = import.meta.env.VITE_API_BASE || 'https://amansen90-frogmusic.hf.space';
 
 export const api = {
   search:  (q)        => `${BASE}/api/search?q=${encodeURIComponent(q)}`,
