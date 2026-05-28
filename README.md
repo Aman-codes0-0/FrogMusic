@@ -1,3 +1,13 @@
+---
+title: Frogmusic
+emoji: 🌍
+colorFrom: pink
+colorTo: indigo
+sdk: docker
+pinned: false
+license: mit
+---
+
 # 🐸 Frog Music — Cozy Retro Music & Video Player
 
 Welcome to **Frog Music**, a cozy, premium music and video streaming web app. It combines the aesthetic charm of retro pixel art and warm glassmorphism with a modern, high-performance streaming engine powered by `yt-dlp` and React.
