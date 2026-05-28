@@ -24,12 +24,13 @@ export default function TopBar({ doSearch, mode, setMode, setView }) {
   };
 
   const handleModeToggle = () => {
-    if (mode === 'video') {
-      setMode('music');
-      setView('home');
-    } else {
-      setMode('video');
+    const newMode = mode === 'video' ? 'music' : 'video';
+    setMode(newMode);
+    if (query.trim() !== '') {
       setView('search');
+      doSearch(query.trim());
+    } else {
+      setView('home');
     }
   };
 

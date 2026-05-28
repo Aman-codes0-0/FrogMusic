@@ -2,6 +2,7 @@
 Frog Music – Minimal HTTP server (stdlib only) + yt-dlp
 No Flask, no extra dependencies — just Python + yt-dlp
 """
+import sys
 import json
 import os
 import threading
@@ -11,6 +12,14 @@ from socketserver import ThreadingMixIn
 from urllib.parse import urlparse, parse_qs, quote
 import yt_dlp
 import requests
+
+# Reconfigure stdout/stderr to UTF-8 on Windows to avoid UnicodeEncodeErrors on emojis or foreign characters
+if sys.platform.startswith('win'):
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+        sys.stderr.reconfigure(encoding='utf-8')
+    except AttributeError:
+        pass
 
 # ── In-memory cache with TTL ──────────────────────────────────────────────────
 # BUG-01 FIX: Entries now expire so stale YouTube stream URLs are never returned.
@@ -319,7 +328,7 @@ class Handler(BaseHTTPRequestHandler):
             "skip_download": True,
             "socket_timeout": 8,
             "retries": 1,
-            # BUG-06 FIX: Removed invalid js_runtimes key (not a valid yt-dlp option)
+            "js_runtimes": {"node": {}, "deno": {}, "bun": {}, "quickjs": {}},
             # Use mweb client — avoids YouTube bot-detection that blocks default web client
             "extractor_args": {"youtube": {"player_client": ["mweb"]}},
         }
@@ -365,7 +374,8 @@ class Handler(BaseHTTPRequestHandler):
             "skip_download": True,
             "socket_timeout": 8,
             "retries": 1,
-            # BUG-06 FIX: Removed invalid js_runtimes key
+            "check_formats": False,
+            "js_runtimes": {"node": {}, "deno": {}, "bun": {}, "quickjs": {}},
             "http_headers": {
                 "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5 Mobile/15E148 Safari/604.1",
             },
@@ -386,10 +396,8 @@ class Handler(BaseHTTPRequestHandler):
                 audio_url = target.get("url")
             if not audio_url: audio_url = info.get("url")
             
-            # Construct absolute Proxy URL using Host header
-            host = self.headers.get("Host", f"localhost:5000")
-            proto = "https" if "hf.space" in host else self.headers.get("X-Forwarded-Proto", "http")
-            proxy_url = f"{proto}://{host}/api/proxy?url={quote(audio_url)}"
+            # Construct relative Proxy URL to avoid port mismatches and CORS issues
+            proxy_url = f"/api/proxy?url={quote(audio_url)}"
 
             result = {
                 "id": vid, "stream_url": proxy_url, "title": info.get("title", "Unknown"),
@@ -404,9 +412,7 @@ class Handler(BaseHTTPRequestHandler):
             result = invidious_stream(vid, quality)
             if result:
                 invidious_audio_url = result.get("stream_url")
-                host = self.headers.get("Host", f"localhost:5000")
-                proto = "https" if "hf.space" in host else self.headers.get("X-Forwarded-Proto", "http")
-                result["stream_url"] = f"{proto}://{host}/api/proxy?url={quote(invidious_audio_url)}"
+                result["stream_url"] = f"/api/proxy?url={quote(invidious_audio_url)}"
                 set_cache(key, result)
                 self._json(result)
             else:
@@ -493,6 +499,8 @@ class Handler(BaseHTTPRequestHandler):
             "skip_download": True,
             "socket_timeout": 8,
             "retries": 1,
+            "check_formats": False,
+            "js_runtimes": {"node": {}, "deno": {}, "bun": {}, "quickjs": {}},
             "extractor_args": {"youtube": {"player_client": ["mweb"]}},
         }
         search_opts = {
@@ -502,6 +510,7 @@ class Handler(BaseHTTPRequestHandler):
             "skip_download": True,
             "socket_timeout": 8,
             "retries": 1,
+            "js_runtimes": {"node": {}, "deno": {}, "bun": {}, "quickjs": {}},
             "extractor_args": {"youtube": {"player_client": ["mweb"]}},
         }
         try:
@@ -531,15 +540,15 @@ class Handler(BaseHTTPRequestHandler):
             self._json({"error": f"Related fetch failed: {str(ex)}"}, 500)
 
     def log_message(self, fmt, *args):
-        # BUG-07 FIX: Add visual level tags [🔴 ERROR] or [🟡 WARN] depending on HTTP response code to make logs easier to debug
+        # BUG-07 FIX: Add visual level tags [ERROR] or [WARN] depending on HTTP response code to make logs easier to debug
         msg = fmt % args
         prefix = "  [HTTP]"
         try:
             status_code = int(args[1])
             if status_code >= 500:
-                prefix = "  [HTTP 🔴 ERROR]"
+                prefix = "  [HTTP ERROR]"
             elif status_code >= 400:
-                prefix = "  [HTTP 🟡 WARN]"
+                prefix = "  [HTTP WARN]"
         except (IndexError, ValueError):
             pass
         print(f"{prefix} {msg}")

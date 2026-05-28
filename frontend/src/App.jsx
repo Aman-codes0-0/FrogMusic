@@ -99,6 +99,10 @@ export default function App() {
     });
   };
 
+  const handlePlayVideo = useCallback((video) => {
+    setActiveVideo(video ? { ...video, _timestamp: Date.now() } : null);
+  }, []);
+
   // doChannelSearch is defined later (after doSearch) as a useCallback
   // BUG-19 FIX: moved below doSearch to avoid calling doSearch internally
 
@@ -126,6 +130,7 @@ export default function App() {
   const currentTimeRef = useRef(currentTime);
   const activePlaylistRef = useRef(activePlaylist);
   const playlistsRef = useRef(playlists);
+  const isFetchingRef = useRef(false);
 
   useEffect(() => {
     setStorageJSON('playlists', playlists);
@@ -352,6 +357,9 @@ export default function App() {
   };
 
   const playSong = useCallback(async (song) => {
+    if (isFetchingRef.current) return;
+    isFetchingRef.current = true;
+
     // Reset play progress metrics to prevent visual jumps from the previous song
     setCurrentTime(0);
     setDuration(0);
@@ -384,17 +392,17 @@ export default function App() {
     }
 
     try {
-      const [streamRes, lyricsRes] = await Promise.all([
-        fetch(api.stream(song.id, qualityRef.current)),
-        fetch(api.lyrics(song.id))
-      ]);
-      const [data, ldata] = await Promise.all([
-        streamRes.json(),
-        lyricsRes.json()
-      ]);
+      // Start both fetches, but do not await lyrics to play the audio immediately
+      const streamPromise = fetch(api.stream(song.id, qualityRef.current)).then(res => res.json());
+      const lyricsPromise = fetch(api.lyrics(song.id)).then(res => res.json()).catch(() => ({ lyrics: null }));
 
+      const data = await streamPromise;
       if (data.error) throw new Error(data.error);
-      setLyrics(ldata.lyrics || null);
+
+      // Set lyrics in the background once ready
+      lyricsPromise.then(ldata => {
+        setLyrics(ldata.lyrics || null);
+      });
 
       const audio = audioRef.current;
       // BUG-13 FIX: Reset volume to current level before playing a new song
@@ -404,8 +412,12 @@ export default function App() {
       await audio.play();
       setIsPlaying(true);
     } catch (err) {
-      showToast('❌ ' + err.message);
+      if (err.name !== 'AbortError') {
+        showToast('❌ ' + err.message);
+      }
       setIsPlaying(false);
+    } finally {
+      isFetchingRef.current = false;
     }
   // Stable callback dependency array — zero re-registrations
   }, []);
@@ -463,12 +475,12 @@ export default function App() {
       if (related && related.length > 0) nextVid = related[0];
     }
     if (nextVid) {
-      setActiveVideo(nextVid);
+      handlePlayVideo(nextVid);
       showToast(`🎬 Autoplay: Playing next related video`);
     } else {
       showToast(`No more videos to play`);
     }
-  }, [results, mode, autoPlay, fetchVideoRadio]);
+  }, [results, mode, autoPlay, fetchVideoRadio, handlePlayVideo]);
 
   const togglePlay = useCallback(async () => {
     const currentSong = currentRef.current;
@@ -476,6 +488,8 @@ export default function App() {
     const audio = audioRef.current;
 
     if (!audio.src || audio.src === window.location.href) {
+      if (isFetchingRef.current) return;
+      isFetchingRef.current = true;
       try {
         const res = await fetch(api.stream(currentSong.id));
         const data = await res.json();
@@ -492,14 +506,20 @@ export default function App() {
           }
         }, { once: true });
       } catch (err) {
-        showToast('❌ ' + err.message);
+        if (err.name !== 'AbortError') {
+          showToast('❌ ' + err.message);
+        }
         return;
+      } finally {
+        isFetchingRef.current = false;
       }
     }
 
     if (audio.paused) {
       audio.play().then(() => setIsPlaying(true)).catch(e => {
-        showToast('Play error: ' + e.message);
+        if (e.name !== 'AbortError') {
+          showToast('Play error: ' + e.message);
+        }
         setIsPlaying(false);
       });
     } else {
@@ -534,10 +554,18 @@ export default function App() {
       return;
     }
 
-    // 2. Otherwise, find the active list (playlist or search results)
-    let songList = currentResults || [];
+    // 2. Otherwise, find the active list (playlist or search results or featured sections)
+    let songList = [];
     if (currentActivePlaylist && currentPlaylists[currentActivePlaylist]) {
       songList = currentPlaylists[currentActivePlaylist];
+    } else if (currentResults && currentResults.some(s => s.id === currentSong?.id)) {
+      songList = currentResults;
+    } else if (currentPlaylists["Recently Played"] && currentPlaylists["Recently Played"].some(s => s.id === currentSong?.id)) {
+      songList = currentPlaylists["Recently Played"];
+    } else if (currentPlaylists["Most Played"] && currentPlaylists["Most Played"].some(s => s.id === currentSong?.id)) {
+      songList = currentPlaylists["Most Played"];
+    } else if (currentResults && currentResults.length > 0) {
+      songList = currentResults;
     }
 
     if (songList.length > 0) {
@@ -568,10 +596,41 @@ export default function App() {
   const playPrev = useCallback(() => {
     const audio = audioRef.current;
     const currentHistory = historyRef.current;
+    const currentResults = resultsRef.current;
+    const currentSong = currentRef.current;
+    const currentActivePlaylist = activePlaylistRef.current;
+    const currentPlaylists = playlistsRef.current;
 
     if (audio.currentTime > 3) {
       audio.currentTime = 0;
-    } else if (currentHistory.length > 0) {
+      return;
+    }
+
+    // Find active list context
+    let songList = [];
+    if (currentActivePlaylist && currentPlaylists[currentActivePlaylist]) {
+      songList = currentPlaylists[currentActivePlaylist];
+    } else if (currentResults && currentResults.some(s => s.id === currentSong?.id)) {
+      songList = currentResults;
+    } else if (currentPlaylists["Recently Played"] && currentPlaylists["Recently Played"].some(s => s.id === currentSong?.id)) {
+      songList = currentPlaylists["Recently Played"];
+    } else if (currentPlaylists["Most Played"] && currentPlaylists["Most Played"].some(s => s.id === currentSong?.id)) {
+      songList = currentPlaylists["Most Played"];
+    } else if (currentResults && currentResults.length > 0) {
+      songList = currentResults;
+    }
+
+    if (songList.length > 0) {
+      const idx = songList.findIndex(s => s.id === currentSong?.id);
+      if (idx > 0) {
+        // Play previous song in list
+        playSong(songList[idx - 1]);
+        return;
+      }
+    }
+
+    // Fallback: play from session history
+    if (currentHistory.length > 0) {
       const prevHistory = [...currentHistory];
       const prev = prevHistory.pop();
       setHistory(prevHistory);
@@ -757,7 +816,7 @@ export default function App() {
         setBgGradient={setBgGradient}
         autoTheme={autoTheme}
         setAutoTheme={setAutoTheme}
-        onPlayVideo={setActiveVideo}
+        onPlayVideo={handlePlayVideo}
         savedVideos={savedVideos}
         toggleSaveVideo={toggleSaveVideo}
         activePlaylist={activePlaylist}
@@ -792,8 +851,9 @@ export default function App() {
 
       {activeVideo && (
         <VideoPlayer
+          key={`${activeVideo.id}-${activeVideo._timestamp}`}
           video={activeVideo}
-          onClose={() => setActiveVideo(null)}
+          onClose={() => handlePlayVideo(null)}
           onVideoEnded={playNextVideo}
           autoPlay={autoPlay}
         />
