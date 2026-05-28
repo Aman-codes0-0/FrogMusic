@@ -1,184 +1,100 @@
----
-title: Frogmusic
-emoji: 🌍
-colorFrom: pink
-colorTo: indigo
-sdk: docker
-pinned: false
-license: mit
----
-
 # 🐸 Frog Music — Cozy Retro Music & Video Player
 
-A premium, full-stack cozy music & video streaming web app powered by `yt-dlp` and React. Search and stream any song or video directly — with a beautiful, cozy pixel-art layout and offline PWA capability.
+Welcome to **Frog Music**, a cozy, premium music and video streaming web app. It combines the aesthetic charm of retro pixel art and warm glassmorphism with a modern, high-performance streaming engine powered by `yt-dlp` and React.
 
-![Status](https://img.shields.io/badge/Status-Live-brightgreen)
-![React](https://img.shields.io/badge/Frontend-React%20%2B%20Vite-61DAFB)
-![Python](https://img.shields.io/badge/Backend-Python%203-3776AB)
-![yt-dlp](https://img.shields.io/badge/Streaming-yt--dlp-FF0000)
-
-![Frog Music Preview](preview.png)
+Whether you want to relax to high-quality lo-fi beats, stream your favorite music videos, or tune into auto-generated radio channels, Frog Music is designed to provide a warm, seamless, and distraction-free listening experience.
 
 ---
 
-## ✨ Features
+## ✨ Features You'll Love
 
 ### 🎵 Music Mode
-- 🔍 **Instant Search** — Search any song, artist, or album with real-time results
-- 🎧 **HQ Audio Streaming** — Selectable quality: Low / Normal / High via `yt-dlp`
-- 🎚️ **Equalizer** — Real-time Bass, Mid, Treble control using Web Audio API
-- 🎤 **Synced Lyrics** — Auto-scrolling lyrics display while playing
-- 🌙 **Sleep Timer** — Auto-pause after 15 / 30 / 45 / 60 minutes
-- ❤️ **Library & Playlists** — Like songs, create custom playlists (stored in localStorage)
-- 🔀 **Queue, Shuffle & Repeat** — Full playback control with history
-- 🔒 **Media Session API** — Lock-screen controls & background playback on mobile
-- 📻 **Radio / Autoplay** — Smart genre/era detection (90s, Lofi, Romantic, Rap etc.) auto-queues similar songs when queue ends
+*   🔍 **Instant Search** – Find any song, artist, or album instantly.
+*   🎧 **High-Quality Audio** – Choose your preferred audio quality (Low, Normal, or High).
+*   🎚️ **Equalizer** – Fine-tune your listening experience with real-time controls for Bass, Mid, and Treble.
+*   🎤 **Synced Lyrics** – Sing along with automatically scrolling lyrics that match the song.
+*   🔀 **Smart Playback** – Shuffle, repeat, and manage your play queue with ease.
+*   📻 **Smart Radio Autoplay** – When your queue ends, our smart autoplay engine detects genres/eras (Lofi, 90s, Romantic, Rap, Devotional) in your playing song to keep the music going.
+*   📱 **Lock-Screen Controls** – Supports the Media Session API, allowing you to pause, skip, and view song details directly on your phone's lock screen or notification drawer.
 
 ### 🎬 Video Mode
-- 📺 **YouTube Video Player** — Full-screen modal with keyboard shortcuts (`F` Fullscreen, `M` Mini, `Esc` Close)
-- 🖼️ **Draggable Mini Player** — Floating PiP-style player for background browsing (desktop)
-- 🔄 **Landscape Rotation** — One-tap rotate-to-fullscreen for mobile/tablet (Screen Orientation API)
-- ▶️ **Video Autoplay** — Related videos auto-play when current video ends (with autoplay toggle)
-- 📋 **Watch Later** — Save any video to Watch Later (synced with localStorage)
-- 📡 **Channel View** — Click any channel name to browse that channel's videos
-- 🏠 **Dedicated Video Home** — Cinematic banner, category filters, popular channels & format cards
+*   📺 **Immersive Player** – Enjoy a large, gorgeous video frame with support for keyboard shortcuts (`F` for Fullscreen, `M` for Mini-player, `Esc` to Close).
+*   🖼️ **Draggable Mini-Player** – Float the video picture-in-picture style in the corner of your screen so you can browse other tracks while watching.
+*   🔄 **Mobile Landscape Mode** – Tap the rotation button to automatically rotate the screen to landscape fullscreen.
+*   🏠 **Dedicated Video Hub** – Browse filtered categories, popular channels, and featured content cards on a specialized video homepage.
 
-### 🎨 UI & General
-- 🌗 **Dual Mode Sidebar** — Music ↔ Video toggle with contextual Home button
-- 🎨 **Dynamic Themes** — Multiple accent colors + auto-extract color from album art
-- 📱 **Fully Responsive** — Optimized for desktop, tablet & mobile (1–4 column grid)
-- 💾 **Persistent State** — Mode, queue, history, saved videos, theme all persisted via localStorage
-- ⚡ **In-Memory Cache** — Fast repeated searches and streams
-- 🔔 **Toast Notifications** — Smooth slide-in notifications for all actions
-- ✨ **Glassmorphism UI** — Premium dark design with smooth micro-animations
+### 🎨 Design & Customization
+*   🌗 **Seamless Mode Switch** – Toggle between Music Mode and Video Mode instantly from the sidebar.
+*   🎨 **Dynamic Palette Extraction** – The app dynamically extracts primary accent colors from the active song's album art to tint the entire UI harmoniously.
+*   📱 **Mobile-Optimized Grid** – Fully responsive layout that scales beautifully from desktops to small phone screens.
+*   💾 **Persistent Library** – Likes, watch later lists, history, and custom playlists are all saved locally in your browser.
 
 ---
 
 ## 🛠️ Tech Stack
 
-| Layer | Technology |
-|---|---|
+| Layer | Technologies Used |
+| :--- | :--- |
 | **Frontend** | React.js, Vite, Vanilla CSS |
-| **Backend** | Python 3 (stdlib `http.server`, `ThreadingMixIn`) |
-| **Streaming** | yt-dlp (mweb client spoof for reliability) |
-| **Styling** | Glassmorphism, CSS Grid, Responsive breakpoints |
-| **Browser APIs** | Web Audio API, Media Session API, Screen Orientation API, Fullscreen API |
-| **Storage** | localStorage (playlists, history, queue, saved videos, preferences) |
+| **Backend** | Python 3 (built-in `http.server` & `ThreadingMixIn`) |
+| **Streaming Engine** | `yt-dlp` (configured with client-spoofing for high reliability) |
+| **Styles** | Custom glassmorphism, responsive grids, HSL dynamic CSS variables |
+| **Browser Integrations** | Web Audio API (Equalizer), Media Session API (lock-screen controls), Screen Orientation API (mobile rotation) |
+| **Data Storage** | LocalStorage (user preferences, library, history, playlists) |
 
 ---
 
-## 📁 Project Structure
+## 🚀 Quick Setup (Local Development)
 
-```
-frog-music/
-├── backend/
-│   ├── server.py          # Python HTTP server + yt-dlp API endpoints
-│   └── requirements.txt   # yt-dlp, requests
-├── frontend/
-│   ├── src/
-│   │   ├── App.jsx                    # Main app state, logic & radio engine
-│   │   ├── index.css                  # All styles (responsive + animations)
-│   │   └── components/
-│   │       ├── TopBar.jsx             # Search bar
-│   │       ├── Sidebar.jsx            # Navigation (Home, Library, Mode toggle)
-│   │       ├── MainContent.jsx        # Home / Video Home / Search / Library / Channel views
-│   │       ├── PlayerBar.jsx          # Bottom player controls
-│   │       ├── NowPlaying.jsx         # Full-screen music player overlay
-│   │       └── VideoPlayer.jsx        # YouTube video modal (fullscreen + mini + rotate)
-│   ├── index.html
-│   ├── package.json
-│   └── vite.config.js                 # Vite + proxy config (→ :5000)
-└── README.md
-```
-
----
-
-## 🚀 Getting Started
+Getting Frog Music running on your computer takes just a couple of minutes!
 
 ### Prerequisites
-- Python 3.8+
-- Node.js 18+ & npm
+Make sure you have the following installed on your machine:
+*   [Python 3.8+](https://www.python.org/downloads/)
+*   [Node.js 18+](https://nodejs.org/) (includes `npm`)
 
-### Development Setup (Hot Reload)
+---
 
-**1. Clone the repo:**
+### Step-by-Step Setup
+
+#### 1. Clone the Repository
 ```bash
 git clone https://github.com/Aman-codes0-0/FrogMusic.git
 cd FrogMusic
 ```
 
-**2. Install & start the backend:**
+#### 2. Start the Python Backend
+The Python server handles video searches, audio stream extraction, and lyrics.
 ```bash
 cd backend
 python -m venv venv
-source venv/bin/activate        # Windows: venv\Scripts\activate
+source venv/bin/activate        # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 python server.py                # Runs on http://localhost:5000
 ```
 
-**3. Install & start the frontend:**
+#### 3. Start the React Frontend
+Open a new terminal window or tab and run:
 ```bash
-cd ../frontend
+cd frontend
 npm install
 npm run dev                     # Runs on http://localhost:5173
 ```
-
-Open **http://localhost:5173** in your browser. 🎵
-
-> **Note:** The Vite dev server proxies `/api/*` requests to the Python backend on port 5000.
+Now, open your browser and navigate to **`http://localhost:5173`**! 🎵
 
 ---
 
-### Production Build
+## 🐋 Docker & HuggingFace Deployment
 
-```bash
-cd frontend
-npm run build          # Builds to frontend/dist/
+Frog Music is configured for production deployments using a multi-stage Docker build:
 
-cd ../backend
-python server.py       # Serves both API + built frontend at http://localhost:5000
-```
+*   **Stage 1** builds the optimized Vite frontend bundle.
+*   **Stage 2** installs python dependencies, installs system packages (`ffmpeg` for audio streaming, `node.js` for signature decryption), copies backend code, and configures python to serve the static frontend directory.
 
----
-
-## 📱 Mobile Usage
-
-- **Responsive Grid** — 4 columns → 2 → 1 based on screen size
-- **Bottom player bar** with full playback controls
-- **Rotate button** inside video player locks orientation to landscape fullscreen
-- **Watch Later** saves videos locally for offline browsing
+The server dynamically binds to the environment variable `PORT` (defaulting to `7860` for HuggingFace Spaces).
 
 ---
 
-## ⌨️ Keyboard Shortcuts (Video Player)
+## 📄 License & Credits
 
-| Key | Action |
-|-----|--------|
-| `F` | Toggle fullscreen |
-| `M` | Toggle mini player |
-| `Esc` | Close player |
-
----
-
-## 📻 Smart Radio / Autoplay
-
-When the music queue runs out and **Autoplay** is enabled:
-
-- Detects **genre/era keywords** in the current song title (e.g. `90s`, `lofi`, `sad`, `romantic`, `rap`, `bhajan`)
-- Auto-fetches similar songs and plays them seamlessly
-- In **Video Mode** — plays the next search result or fetches a related video automatically
-
----
-
-## ⚡ Performance Notes
-
-- Search uses `ytsearch20` (top 20 results) for fast response (~2s)
-- `ThreadedHTTPServer` handles search + playback in parallel (non-blocking)
-- All search and stream results cached in-memory for instant replay
-- YouTube Iframe Player API (`enablejsapi=1`) used for video-end detection via `postMessage`
-
----
-
-## 📄 License
-
-MIT License — Made with ❤️ by [Aman](https://github.com/Aman-codes0-0)
+This project is licensed under the MIT License. Created with ❤️ by [Aman](https://github.com/Aman-codes0-0).
