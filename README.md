@@ -1,3 +1,13 @@
+---
+title: Frogmusic
+emoji: 🌍
+colorFrom: pink
+colorTo: indigo
+sdk: docker
+pinned: false
+license: mit
+---
+
 # 🐸 Frog Music — Cozy Retro Music & Video Player
 
 A premium, full-stack cozy music & video streaming web app powered by `yt-dlp` and React. Search and stream any song or video directly — with a beautiful, cozy pixel-art layout and offline PWA capability.
